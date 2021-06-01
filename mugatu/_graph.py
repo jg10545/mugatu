@@ -10,6 +10,7 @@ import networkx as nx
 def build_graph_from_indices(indices):
     g = nx.Graph()
     for i in range(len(indices)):
+        g.add_node(i)
         set1 = set(indices[i])
         for j in range(i):
             set2 = set(indices[j])

@@ -33,3 +33,5 @@ def test_compute_clusters():
     cover = [np.arange(N,int(1.5*N)), np.arange(int(1.4*N), int(1.9*N))]
     indices = compute_clusters(df, cover, False, k)
     assert len(indices) == k*len(cover)
+    
+    

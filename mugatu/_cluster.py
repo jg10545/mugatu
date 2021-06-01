@@ -21,6 +21,9 @@ def reduce_and_cluster(X, index, pca_dim=4, k=5, **kwargs):
     :k: number of clusters to look for
     :kwargs: keyword arguments to pass to faiss.Kmeans()
     """
+    # in case the lens generates an empty segment
+    if X.shape[0] == 0:
+        return []
     # make sure data is on a common scale and float-32 (to work with FAISS)
     X = StandardScaler().fit_transform(X).astype(np.float32)
     # if using PCA, reduce dimension
