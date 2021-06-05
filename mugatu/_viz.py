@@ -25,18 +25,26 @@ def _build_node_dataset(df, cluster_indices, lenses={}, include_indices=True):
     if len(lenses) > 0:
         lens_df = pd.DataFrame(lenses, index=df.index)
         for l in lenses:
-            node_df[l] = [np.mean(lens_df.loc[c,:][l]) for c in cluster_indices]
+            node_df[l] = [np.mean(lens_df.loc[c,l]) for c in cluster_indices]
             
-    return hv.Dataset(node_df)
+    for d in df.columns:
+        # note: appending "data_" to column names is a workaround for an
+        # annoying issue with HoloViews, where some column names appear
+        # to be protexted in hv.Dataset (like "x")
+        node_df["data_"+d] = [np.mean(df.loc[c,d]) for c in cluster_indices]
+            
+    return node_df
 
 
-def _build_holoviews_fig(g, positions, node_df=None, color="lens",width=800, 
+def _build_holoviews_fig(g, positions, node_df=None, color=[], width=800, 
                          height=600, node_size=20, cmap="plasma"):
     """
     
     """
     maxsize = np.max(node_df["size"])
-    fig = hv.Graph.from_networkx(g, positions=positions, nodes=node_df).opts(width=width,
+    data = hv.Dataset(node_df, kdims=list(node_df.columns))
+    fig = hv.Graph.from_networkx(g, positions=positions,
+                                 nodes=data).opts(width=width,
                                             height=height, 
                                             xaxis=None, yaxis=None, edge_alpha=0.5,
                                             cmap=cmap, node_color=hv.dim(color),
@@ -44,7 +52,7 @@ def _build_holoviews_fig(g, positions, node_df=None, color="lens",width=800,
                                             node_size=0.5*node_size*(1+hv.dim("size")/maxsize))
     return fig
 
-def mapper_fig(g, positions, node_df=None, color="lens", width=800, 
+def mapper_fig(g, positions, node_df=None, color=[], width=800, 
                height=600, node_size=20, cmap="plasma"):
     """
     
@@ -52,6 +60,8 @@ def mapper_fig(g, positions, node_df=None, color="lens", width=800,
     if isinstance(color, str):
         return _build_holoviews_fig(g, positions, node_df, color, width, height, node_size, cmap)
     elif isinstance(color, list):
+        if (len(color) == 0)&(node_df is not None):
+            color = [x for x in node_df.columns if x not in ["indices", "index"]]
         color_dict = {c:_build_holoviews_fig(g, positions, node_df, c, width, height, node_size, 
                                                     cmap) for c in color}
         return hv.HoloMap(color_dict, kdims="Color nodes by")
