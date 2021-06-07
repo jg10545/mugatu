@@ -64,7 +64,7 @@ def mapper_fig(g, positions, node_df=None, color=[], width=800,
             color = [x for x in node_df.columns if x not in ["indices", "index"]]
         color_dict = {c:_build_holoviews_fig(g, positions, node_df, c, width, height, node_size, 
                                                     cmap) for c in color}
-        return hv.HoloMap(color_dict, kdims="Color nodes by")
+        return hv.HoloMap(color_dict, kdims=["Color nodes by"])
     else:
         assert False, "don't know what to do with the argument you passes to `color`"
     
