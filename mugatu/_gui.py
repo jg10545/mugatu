@@ -6,7 +6,7 @@ Created on Sun Jun  6 20:59:35 2021
 @author: joe
 """
 import pandas as pd
-import networkx as ns
+import networkx as nx
 import panel as pn
 import holoviews as hv
 

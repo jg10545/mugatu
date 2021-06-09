@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 import faiss
 import dask
 
-def reduce_and_cluster(X, index, pca_dim=4, k=5, **kwargs):
+def reduce_and_cluster(X, index, pca_dim=4, k=5, min_points_per_cluster=1, **kwargs):
     """
     Reduce the dimension of a dataset with PCA, cluster with
     k-means, and return a list of indices assigned to each cluster
@@ -19,19 +19,32 @@ def reduce_and_cluster(X, index, pca_dim=4, k=5, **kwargs):
     :index: (N,) array of indices used to identify data in original dataframe
     :pca_dim: int; dimension < d to reduce data to. 0 to disable.
     :k: number of clusters to look for
+    :min_points_per_cluster:
     :kwargs: keyword arguments to pass to faiss.Kmeans()
     """
+    N = X.shape[0]
     # in case the lens generates an empty segment
-    if X.shape[0] == 0:
+    if N == 0:
         return []
+    # check to see if we have more than zero points, but fewer than
+    # min_points_per_cluster- return a single cluster
+    elif N < min_points_per_cluster:
+        return [index]
+    # similarly make adjust k if we don't have enough data
+    elif N < k*min_points_per_cluster:
+        k = N//min_points_per_cluster
+    
     # make sure data is on a common scale and float-32 (to work with FAISS)
     X = StandardScaler().fit_transform(X).astype(np.float32)
     # if using PCA, reduce dimension
     if pca_dim:
-        mat = faiss.PCAMatrix(X.shape[1], pca_dim)
-        mat.train(X)
-        X = mat.apply_py(X)
-    # Cluster and get indices
+        # only reduce dimension if we have enough data points
+        if N > pca_dim:
+            mat = faiss.PCAMatrix(X.shape[1], pca_dim)
+            mat.train(X)
+            X = mat.apply_py(X)
+            
+    # Cluster and get indices. 
     kmeans = faiss.Kmeans(X.shape[1] ,k, **kwargs)
     kmeans.train(X)
     D, I = kmeans.index.search(X, 1)

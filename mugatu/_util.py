@@ -42,7 +42,7 @@ def _lens_dict(data, lens_data=None, compute=["svd", "isolation_forest", "kde"])
         lenses["svd_2"] = svd[:,1]
 
     if "isolation_forest" in compute:
-        isoforest = sklearn.ensemble.IsolationForest().fit(data_rescaled)
+        isoforest = sklearn.ensemble.IsolationForest(n_jobs=-1).fit(data_rescaled)
         lenses["isolation_forest"] = isoforest.decision_function(data_rescaled)
         
     if "kde" in compute:
