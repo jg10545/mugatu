@@ -5,6 +5,8 @@ Created on Sun May 30 11:52:23 2021
 
 @author: joe
 """
+import pandas as pd
+
 def _find_start_and_delta(minval, maxval, num_intervals, f):
     """
     Compute the spacing between start values and length of each
@@ -62,7 +64,10 @@ def compute_cover_indices(index, lens1, lens2=None, num_intervals=5, f=0.1, bala
     if lens2 is None:
         return indices_1D
     indices_2D = []
+    # rebuild second lens as a pandas series so that we can subset it using
+    # the index
+    lens2 = pd.Series(data=lens2, index=index)
     for i in indices_1D:
-        indices_2D += _compute_1D_cover_indices(i, lens2[i], num_intervals, f, balance)
+        indices_2D += _compute_1D_cover_indices(i, lens2[i].values, num_intervals, f, balance)
         
     return indices_2D

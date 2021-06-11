@@ -52,7 +52,7 @@ def test_compute_cover_indices():
     N = 100
     num_intervals = 5
     f = 0.1
-    i = np.arange(N)
+    i = np.arange(N) + 500
     l = np.random.normal(0,1,N)
     l2 = np.random.normal(0,1,N)
     indices = compute_cover_indices(i, l, l2, num_intervals, f, False)
