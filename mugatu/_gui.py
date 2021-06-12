@@ -70,7 +70,7 @@ def _build_widgets(colnames, lenses, title=""):
     def _save_callback(*events):
         fig = fig_panel[0]
         bytesio = io.BytesIO()
-        hv.save(fig, bytesio, backend="bokeh", resources="inline")
+        hv.save(fig, bytesio, backend="bokeh", resources="inline", title=title)
         bytesio.seek(0)
         return bytesio
     sav_button = pn.widgets.FileDownload(name="Download figure (may take a few minutes)",
