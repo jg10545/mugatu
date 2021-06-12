@@ -55,7 +55,23 @@ def _build_holoviews_fig(g, positions, node_df=None, color=[], width=800,
 def mapper_fig(g, positions, node_df=None, color=[], width=800, 
                height=600, node_size=20, cmap="plasma"):
     """
+    Generate a holoviews figure displaying a mapper graph
     
+    :g: networkx Graph object representing the mapper graph
+    :positions: positions of nodes in the graph- dictionary of tuples (output
+                    of any of the nx.layout functions)
+    :node_df: dataframe mapping node indices to summary statistics
+    :color: string or list of strings; column names from node_df to use for 
+        coloring graph nodes. if an empty list, use all columns
+    :width: width of figure
+    :height: height of figure
+    :node_size: global scale of nodes in graph (individual nodes will be bigger
+            or smaller depending on the number of constituent data points)
+    :cmap: colormap to use.
+        
+        
+    Returns
+    A Holoviews Graph or HoloMap object if color is a string or list, respectively
     """
     if isinstance(color, str):
         return _build_holoviews_fig(g, positions, node_df, color, width, height, node_size, cmap)

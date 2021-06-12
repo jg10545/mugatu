@@ -83,7 +83,9 @@ def _build_widgets(colnames, lenses):
 
 
 
-def _compute_lenses(df, variables_to_include, lens_data=None, old_variables_to_include=None, old_lenses=None):
+def _compute_lenses(df, variables_to_include, lens_data=None,
+                    old_variables_to_include=None, old_lenses=None,
+                    compute=["svd", "isolation_forest"]):
     """
     Only recompute lenses if necessary
     """
@@ -92,22 +94,37 @@ def _compute_lenses(df, variables_to_include, lens_data=None, old_variables_to_i
         if set(variables_to_include) == set(old_variables_to_include):
             return old_lenses
     else:
-        return _lens_dict(df[variables_to_include], lens_data)
+        return _lens_dict(df[variables_to_include], lens_data, compute=compute)
 
+
+def _combine_dictionaries(d1,d2):
+    d = {}
+    if d1 is not None:
+        for k in d1:
+            d[k] = d1[k]
+    if d2 is not None:
+        for k in d2:
+            d[k] = d2[k]
+    if len(d) == 0:
+        d = None
+    return d
 
 class Mapperator(object):
     
-    def __init__(self, df, lens_data=None):
+    def __init__(self, df, lens_data=None, compute=["svd", "isolation_forest", "kde"],
+                 color_data=None):
         """
         
         """
         # store data and precompute lenses
         self.df = df
         self.lens_data = lens_data
+        self.color_data = color_data
         self._node_df = None
         include = df.columns.to_list()
         self._old_variables_to_include = include
-        self.lens_dict = _compute_lenses(df, include, lens_data)
+        self._compute = compute
+        self.lens_dict = _compute_lenses(df, include, lens_data, compute=compute)
         # set up gui
         self._widgets = _build_widgets(list(df.columns), list(self.lens_dict.keys()))
         self._widgets["go_button"].on_click(self.build_mapper_model)
@@ -116,7 +133,8 @@ class Mapperator(object):
     def _update_lens(self):
         include = self._widgets["cross_selector"].values
         self.lens_dict = _compute_lenses(self.df, include, self.lens_data,
-                                          self._old_variables_to_include, self.lens_dict)
+                                          self._old_variables_to_include, self.lens_dict,
+                                          compute=self._compute)
         self._old_variables_to_include = include
         
     def _build_mapper_graph(self):
@@ -138,9 +156,13 @@ class Mapperator(object):
         self._g = g
         
     def _build_node_df(self):
+        # if we have any exogenous information we'd like to color the nodes
+        # by, combine that with the lens dict. The visualization will 
+        # automatically add all of them as coloring options.
+        exog = _combine_dictionaries(self.lens_dict, self.color_data)
         self._node_df = _build_node_dataset(self.df, 
                                             self._cluster_indices, 
-                                            lenses=self.lens_dict, 
+                                            lenses=exog, 
                                             include_indices=self._widgets["include_indices"].value)
         
     def _update_fig(self):
