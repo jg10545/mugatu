@@ -9,15 +9,20 @@ import pandas as pd
 import networkx as nx
 import panel as pn
 import holoviews as hv
+import io
 
 from mugatu._util import _lens_dict
 from mugatu._mapper import build_mapper_graph
 from mugatu._viz import mapper_fig, _build_node_dataset
 
-def _build_widgets(colnames, lenses):
+def _build_widgets(colnames, lenses, title=""):
     """
     generate all the Panel widgets
     """
+    if len(title) > 0:
+        filename = title.replace(" ", "_") + ".html"
+    else:
+        filename = "mugatu.html"
     # MODELING WIDGETS
     cross_selector = pn.widgets.CrossSelector(name='Inputs', value=colnames, options=colnames)
     lens1 = pn.widgets.Select(name="Lens 1", options=lenses)
@@ -61,8 +66,19 @@ def _build_widgets(colnames, lenses):
     pos_button = pn.widgets.Button(name="Reset layout", button_type="primary")
     hmap = hv.HoloMap({c:hv.Points(data=pd.DataFrame({"x":[0,1], "y":[1,2]})).opts(color=c) for c in ["red","blue"]})
     fig_panel = pn.panel(hmap)
+    
+    def _save_callback(*events):
+        fig = fig_panel[0]
+        bytesio = io.BytesIO()
+        hv.save(fig, bytesio, backend="bokeh", resources="inline")
+        bytesio.seek(0)
+        return bytesio
+    sav_button = pn.widgets.FileDownload(name="Download figure (may take a few minutes)",
+                                         filename=filename,
+                                         callback=_save_callback)
     layout = pn.layout.Tabs(("Modeling", model_layout), 
-                          ("Visualization", pn.Column(pos_button, fig_panel)))
+                            ("Visualization", pn.Column(fig_panel, sav_button)))
+                          #("Visualization", pn.Column(pos_button, fig_panel)))
     return {"cross_selector":cross_selector, 
            "lens1":lens1,
            "lens2":lens2,
@@ -76,7 +92,8 @@ def _build_widgets(colnames, lenses):
            "pos_button":pos_button,
            "num_intervals":num_intervals,
            "overlap_frac":overlap_frac,
-           "balance":balance}
+           "balance":balance,
+           "sav_button":sav_button}
 
 
 
@@ -111,8 +128,8 @@ def _combine_dictionaries(d1,d2):
 
 class Mapperator(object):
     
-    def __init__(self, df, lens_data=None, compute=["svd", "isolation_forest", "kde"],
-                 color_data=None):
+    def __init__(self, df, lens_data=None, compute=["svd", "isolation_forest"],
+                 color_data=None, title=""):
         """
         
         """
@@ -121,12 +138,14 @@ class Mapperator(object):
         self.lens_data = lens_data
         self.color_data = color_data
         self._node_df = None
+        self._title = title
         include = df.columns.to_list()
         self._old_variables_to_include = include
         self._compute = compute
         self.lens_dict = _compute_lenses(df, include, lens_data, compute=compute)
         # set up gui
-        self._widgets = _build_widgets(list(df.columns), list(self.lens_dict.keys()))
+        self._widgets = _build_widgets(list(df.columns), list(self.lens_dict.keys()),
+                                       title)
         self._widgets["go_button"].on_click(self.build_mapper_model)
         self._widgets["pos_button"].on_click(self.update_node_positions)
         
@@ -166,7 +185,8 @@ class Mapperator(object):
                                             include_indices=self._widgets["include_indices"].value)
         
     def _update_fig(self):
-        fig = mapper_fig(self._g, self._pos, node_df=self._node_df, width=600)
+        fig = mapper_fig(self._g, self._pos, node_df=self._node_df, width=600,
+                         title=self._title)
         fig = pn.panel(fig)
         self._widgets["fig_panel"][0] = fig[0]
         self._widgets["fig_panel"][1] = fig[1]
