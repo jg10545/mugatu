@@ -11,7 +11,7 @@ import sklearn.preprocessing, sklearn.decomposition
 import sklearn.neighbors, sklearn.ensemble
 import logging
 
-def _lens_dict(data, lens_data=None, compute=["svd", "isolation_forest", "kde"]):
+def _lens_dict(data, lens_data=None, compute=["svd", "isolation_forest", "kde", "l2"]):
     """
     Generate a dictionary of arrays that can be used as lenses
     
@@ -44,12 +44,16 @@ def _lens_dict(data, lens_data=None, compute=["svd", "isolation_forest", "kde"])
         lenses["svd_2"] = svd[:,1]
 
     if "isolation_forest" in compute:
-        logging.info("precomputing IsolationForest lense")
+        logging.info("precomputing IsolationForest lens")
         isoforest = sklearn.ensemble.IsolationForest(n_jobs=-1).fit(data_rescaled)
         lenses["isolation_forest"] = isoforest.decision_function(data_rescaled)
         
     if "kde" in compute:
-        logging.info("precomputing kernel density estimate lense")
+        logging.info("precomputing kernel density estimate lens")
         kde = sklearn.neighbors.KernelDensity(kernel="gaussian").fit(data_rescaled)
         lenses["kernel_density_estimate"] = kde.score_samples(data_rescaled)
+        
+    if "l2" in compute:
+        logging.info("precomputing L2 norm lens")
+        lenses["l2"] = np.sqrt(np.sum(data_rescaled**2, 1))
     return lenses

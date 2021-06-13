@@ -78,7 +78,6 @@ def _build_widgets(colnames, lenses, title=""):
                                          callback=_save_callback)
     layout = pn.layout.Tabs(("Modeling", model_layout), 
                             ("Visualization", pn.Column(fig_panel, sav_button)))
-                          #("Visualization", pn.Column(pos_button, fig_panel)))
     return {"cross_selector":cross_selector, 
            "lens1":lens1,
            "lens2":lens2,
@@ -102,7 +101,7 @@ def _build_widgets(colnames, lenses, title=""):
 
 def _compute_lenses(df, variables_to_include, lens_data=None,
                     old_variables_to_include=None, old_lenses=None,
-                    compute=["svd", "isolation_forest"]):
+                    compute=["svd", "isolation_forest", "l2"]):
     """
     Only recompute lenses if necessary
     """
@@ -127,11 +126,28 @@ def _combine_dictionaries(d1,d2):
     return d
 
 class Mapperator(object):
+    """
+    Class for interactive modeling with Mapper
+    """
     
-    def __init__(self, df, lens_data=None, compute=["svd", "isolation_forest"],
+    def __init__(self, df, lens_data=None, compute=["svd", "isolation_forest", "l2"],
                  color_data=None, title=""):
         """
-        
+        :df: pandas DataFrame raw data to cluster on. The dataframe index
+            will be used to relate nodes on the Mapper graph back to data
+            points.
+        :lens_data: dictionary of arrays; additional lenses that can be used
+            to filter your data
+        :compute: listof strings; generic lenses to precompute. can include:
+            -"svd" computes first and second singular value decomposition vectors
+            -"isolation_forest" assigns an anomaly score from an Isolation Forest
+            -"l2" rescales the data so each column has zero mean and unit 
+                variance, then records the L2-norm of each data point
+            -"kde" estimates local density of each record using a kernel density
+                estimator. Very slow on large datasets!
+        :color_data: dictionary of arrays; additional data to use for coloring
+            nodes in the Mapper graph
+        :title: string; title for the figure
         """
         # store data and precompute lenses
         self.df = df
@@ -238,6 +254,9 @@ class Mapperator(object):
         self._widgets["progress"].active = False
         
     def panel(self):
+        """
+        Return the panel object for the GUI.
+        """
         return self._widgets["layout"]
 
 
