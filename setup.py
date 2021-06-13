@@ -16,7 +16,9 @@ requirements = ["numpy",
                 "networkx",
                 "faiss",
                 "pandas",
-                "holoviews"
+                "holoviews",
+                "dask",
+                "panel"
                 ]
 
 setup_requirements = ['pytest-runner', ]
