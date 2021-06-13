@@ -16,10 +16,9 @@ mugatu
 
 
 
-Lightweight implementation of the mapper algorithm for topological data analysis
+Lightweight implementation of the Mapper algorithm for topological data analysis
 
 * Free software: MIT license
-* Documentation: https://mugatu.readthedocs.io.
 
 
 What is this
@@ -55,6 +54,23 @@ For example, Mapper converts this set of concentric-circle data (from my example
 to a graph whose topology is consistent with our intuition for the dataset:
 
 .. image:: docs/circles_mapper_graph.png
+
+
+KDDCUP99 Example
+----------------
+
+The other example notebook is from the `kddcup99 dataset https://kdd.ics.uci.edu/databases/kddcup99/task.html`_. 
+
+.. image:: docs/kddcup_modeling.png
+
+
+.. image:: docs/kddcup_normal.png
+
+
+.. image:: docs/kddcup_neptune.png
+
+
+.. image:: docs/kddcup_smurf.png
 
 
 Credits
