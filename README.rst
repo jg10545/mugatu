@@ -18,15 +18,44 @@ mugatu
 
 Lightweight implementation of the mapper algorithm for topological data analysis
 
-
 * Free software: MIT license
 * Documentation: https://mugatu.readthedocs.io.
 
 
-Features
---------
+What is this
+------------
 
-* TODO
+``mugatu`` is not a replacement for hardcore, flexible TDA tools like `giotto-tda <https://github.com/giotto-ai/giotto-tda>`_ and `scikit-tda <https://scikit-tda.org/>`_. This is only an implementation of the Mapper algorithm, and does not have their flexibility to wrap the entire ``scikit-learn`` API.
+
+Since Mapper is largely a tool for telling stories with your data, I wanted to build
+
+* Focus iteration on changes relevant to that storytelling task: more experimenting with different lenses, less experimenting with ``scikit-learn`` pipelines or DBSCAN parameters. The clustering step runs PCA then k-means. That's it. You can have one or two lenses at a time.
+* Make those iterative steps as fast as possible. ``faiss`` is used for PCA and k-means, and the different clustering problems are parallelized with ``dask``.
+
+
+None of my data structures are creative:
+
+* Raw data should be prepared as a ``pandas`` DataFrame. The index of that DataFrame is used later to relate the nodes on the Mapper graph.
+* Data for filtering and coloring should be in ``numpy`` arrays. If you're using the ``mugatu`` GUI, wrap them in a dictionary so they have an interpretable label.
+* The Mapper graph is built by ``mugatu.build_mapper_graph()`` as a ``networkx`` Graph object. Do whatever you want with it.
+* The ``mugatu.build_mapper_graph()`` function also returns a list of arrays giving the indices of raw data points associated with each node.
+
+``mugatu`` also  provides an interactive GUI for experimenting with Mapper, written with the ``panel`` library and visualizing with ``holoviews``.
+
+
+Wait, what's Mapper?
+--------------------
+
+Mapper is an algorithm that can be a useful addition to your unsupervised learning/visualization toolkit. While more common methods map high-dimensional point cloud data to categories (clustering), points on a unit simplex (mixture models, fuzzy clustering), or a low-dimensional point cloud (matix factorization, manifold learning), Mapper represents your data as a graph.
+
+For example, Mapper converts this set of concentric-circle data (from my example notebook):
+
+.. image:: docs/circles_raw_data.png
+
+to a graph whose topology is consistent with our intuition for the dataset:
+
+.. image:: docs/circles_mapper_graph.png
+
 
 Credits
 -------
