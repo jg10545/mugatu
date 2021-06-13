@@ -9,11 +9,14 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 import holoviews as hv
+import pytest
 
 from mugatu._mapper import build_mapper_graph
 from mugatu._viz import _build_node_dataset
 from mugatu._viz import _build_holoviews_fig, mapper_fig
 
+
+hv.extension("bokeh")
 
 N = 100
 data = pd.DataFrame({"a":np.random.normal(0,1,N), "b":np.random.normal(0,1,N)})
@@ -42,8 +45,6 @@ def test_build_node_dataset_with_lenses():
     assert isinstance(ds, pd.DataFrame)
     assert len(ds) == len(clust_ind)
     
-"""
-NEED TO IMPORT A BOKEH PLOTTING EXTENSION FIRST
 
 def test_build_holoviews_fig():
     ds = _build_node_dataset(data, clust_ind, lenses={"lens":data.a.values}, include_indices=True)
@@ -68,4 +69,12 @@ def test_mapper_fig_holomap():
     fig = mapper_fig(g, pos, node_df=ds, color=["lens", "lens2"],width=800, 
                                height=600, node_size=20, cmap="plasma")
     assert isinstance(fig, hv.HoloMap)
-"""
+
+
+def test_mapper_fig_bad_color_input_raises_error():
+    ds = _build_node_dataset(data, clust_ind, lenses={"lens":data.a.values,
+                                                      "lens2":data.b.values}, 
+                             include_indices=True)
+    pos = nx.layout.fruchterman_reingold_layout(g, iterations=1)
+    with pytest.raises(AssertionError):
+        fig = mapper_fig(g, pos, node_df=ds, color={})

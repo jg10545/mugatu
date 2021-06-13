@@ -24,6 +24,43 @@ def test_reduce_and_cluster():
     # check that all records accounted for
     assert np.sum([len(x) for x in indices]) == N
     
+
+def test_reduce_and_cluster_empty_bin():
+    k = 10
+    test_data = np.random.normal(0,1,size=(0,10))
+    test_index = np.arange(0) 
+    indices = reduce_and_cluster(test_data, test_index, 5, k)
+    # check data types of index
+    assert isinstance(indices, list)
+    assert len(indices) == 0
+    
+    
+def test_reduce_and_cluster_way_too_few_in_bin():
+    N = 9
+    k = 10
+    test_data = np.random.normal(0, 1, (N, 20))
+    test_index = np.arange(N) + 13
+    indices = reduce_and_cluster(test_data, test_index, 5, k,
+                                 min_points_per_cluster=10)
+    # check data types of index
+    assert isinstance(indices, list)
+    assert isinstance(indices[0], np.ndarray)
+    assert len(indices) == 1
+    assert (indices[0] == test_index).all()
+    
+    
+def test_reduce_and_cluster_too_few_in_bin():
+    N = 24
+    k = 5
+    test_data = np.random.normal(0, 1, (N, 20))
+    test_index = np.arange(N) + 13
+    indices = reduce_and_cluster(test_data, test_index, 5, k,
+                                 min_points_per_cluster=5)
+    # check data types of index
+    assert isinstance(indices, list)
+    assert isinstance(indices[0], np.ndarray)
+    assert len(indices) == 4
+    
     
     
 def test_compute_clusters():

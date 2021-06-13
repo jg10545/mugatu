@@ -50,6 +50,8 @@ def reduce_and_cluster(X, index, pca_dim=4, k=5, min_points_per_cluster=1, **kwa
     D, I = kmeans.index.search(X, 1)
     I = I.ravel()
     indices = [index[I == i] for i in range(k)]
+    # filter out empty clusters
+    indices = [i for i in indices if len(i) > 0]
     return indices
 
 
@@ -65,6 +67,8 @@ def compute_clusters(df, cover, pca_dim=4, k=5, **kwargs):
     :k: number of clusters for k-means
     :kwargs: additional keyword arguments to pass to faiss.Kmeans()
     """
+    # build a dask delayed task for every filtered region of the data, 
+    # so that they can be computed in parallel
     tasks = [dask.delayed(reduce_and_cluster)(np.ascontiguousarray(df.loc[c,:].values), 
                                               c, pca_dim=pca_dim, k=k, **kwargs) for c in cover]
     results = dask.compute(tasks)
