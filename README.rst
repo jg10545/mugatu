@@ -47,7 +47,7 @@ Wait, what's Mapper?
 
 Mapper is an algorithm that can be a useful addition to your unsupervised learning/visualization toolkit. While more common methods map high-dimensional point cloud data to categories (clustering), points on a unit simplex (mixture models, fuzzy clustering), or a low-dimensional point cloud (matix factorization, manifold learning), Mapper represents your data as a graph.
 
-For example, Mapper converts this set of concentric-circle data (from my example notebook):
+For example, Mapper converts this set of concentric-circle data (from my `example notebook <examples/sklearn_circles_example.ipynb>`_):
 
 .. image:: docs/circles_raw_data.png
 
@@ -59,7 +59,7 @@ to a graph whose topology is consistent with our intuition for the dataset:
 KDDCUP99 Example
 ----------------
 
-The other example notebook is from the `kddcup99 dataset https://kdd.ics.uci.edu/databases/kddcup99/task.html`_. 
+The other example notebook is from the `kddcup99 dataset <https://kdd.ics.uci.edu/databases/kddcup99/task.html>`_ for network intrusion detection. From the ``mugatu`` GUI we can see that some of the common attack types cluster together easily on the graph: 
 
 .. image:: docs/kddcup_modeling.png
 
