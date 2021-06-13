@@ -59,7 +59,7 @@ to a graph whose topology is consistent with our intuition for the dataset:
 KDDCUP99 Example
 ----------------
 
-The other example notebook is from the `kddcup99 dataset <https://kdd.ics.uci.edu/databases/kddcup99/task.html>`_ for network intrusion detection. From the ``mugatu`` GUI we can see that some of the common attack types cluster together easily on the graph: 
+The other `example notebook <examples/kddcup99_example.ipynb>`_ is from the `kddcup99 dataset <https://kdd.ics.uci.edu/databases/kddcup99/task.html>`_ for network intrusion detection. From the ``mugatu`` GUI we can see that some of the common attack types cluster together easily on the graph: 
 
 .. image:: docs/kddcup_modeling.png
 
