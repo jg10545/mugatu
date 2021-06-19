@@ -31,7 +31,7 @@ def _build_node_dataset(df, cluster_indices, lenses={}, include_indices=True):
         # note: appending "data_" to column names is a workaround for an
         # annoying issue with HoloViews, where some column names appear
         # to be protexted in hv.Dataset (like "x")
-        node_df["data_"+d] = [np.mean(df.loc[c,d]) for c in cluster_indices]
+        node_df[f"data_{d}"] = [np.mean(df.loc[c,d]) for c in cluster_indices]
             
     return node_df
 
