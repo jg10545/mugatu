@@ -8,33 +8,56 @@ Created on Mon May 31 21:02:02 2021
 import numpy as np
 import pandas as pd
 import holoviews as hv
+from bokeh.models import HoverTool
 
 
-def _build_node_dataset(df, cluster_indices, lenses={}, include_indices=True):
+def _build_node_dataset(df, cluster_indices, lenses={}, include_indices=True, num=3):
     """
-    Build a holoviews dataset object to contain summary stats on each node in the
-    mapper graph
+    
     """
+    num = min(num, len(df.columns)-1)
+    # for each node- record the number of constituent data points
     node_df = pd.DataFrame({
         "index":np.arange(len(cluster_indices)),
         "size":[len(c) for c in cluster_indices],
         })
-    if include_indices:
-        node_df["indices"] = [", ".join([str(i) for i in c]) for c in cluster_indices]
+    # next- for each node, compute the average value of every covariate.
+    mean_cols = []
+    for d in df.columns:
+        # skip if all values are the same
+        if df[d].std() > 0:
+            node_df[f"mean_{d}"] = [np.mean(df.loc[c,d]) for c in cluster_indices]
+            mean_cols.append(f"mean_{d}")
+        
+    # the above creates way too much information to be readable in the hover tool.
+    # so for each node just find unusually high or low values. compute these by
+    # looking at node means shifted by the mean of all node means, and scaled by
+    # the standard deviation of node means.
+    rel_means = (node_df[mean_cols] - node_df[mean_cols].mean())/node_df[mean_cols].std()
+    sorted_means = rel_means.values.argsort(1)
+    
+    cols = list(df.columns)
+    highest = sorted_means[:,-num:][:,::-1]
+    node_df["high"] = [", ".join([cols[i] for i in highest[j,:] if 
+                                     rel_means.values[j,i] > 0]) for j in
+                          range(len(highest))]
+    lowest = sorted_means[:,:num]
+    node_df["low"] = [", ".join([cols[i] for i in lowest[j,:] if
+                                rel_means.values[j,i] < 0]) for j in 
+                      range(len(lowest))]
+    
+    node_df = node_df.drop(mean_cols,1)
     
     if len(lenses) > 0:
         lens_df = pd.DataFrame(lenses, index=df.index)
         for l in lenses:
             node_df[l] = [np.mean(lens_df.loc[c,l]) for c in cluster_indices]
-            
-    for d in df.columns:
-        # note: appending "data_" to column names is a workaround for an
-        # annoying issue with HoloViews, where some column names appear
-        # to be protexted in hv.Dataset (like "x")
-        node_df[f"data_{d}"] = [np.mean(df.loc[c,d]) for c in cluster_indices]
-            
+    
+    if include_indices:
+        node_df["indices"] = [", ".join([str(i) for i in c]) for c in cluster_indices]
     return node_df
 
+        
 
 def _build_holoviews_fig(g, positions, node_df=None, color=[], width=800, 
                          height=600, node_size=20, cmap="plasma", title=""):
@@ -42,14 +65,26 @@ def _build_holoviews_fig(g, positions, node_df=None, color=[], width=800,
     
     """
     maxsize = np.max(node_df["size"])
-    data = hv.Dataset(node_df, kdims=list(node_df.columns))
+    if node_df is not None:
+        tooltips = [
+            ('Index', '@index'),
+            ('High', '@high'),
+            ('Low', '@low')
+            ]  
+        if "indices" in node_df.columns:
+            tooltips.append(('Indices', '@indices'))
+        tools = [HoverTool(tooltips=tooltips)]
+        node_df = hv.Dataset(node_df, kdims=list(node_df.columns))
+    else:
+        tools = []
     fig = hv.Graph.from_networkx(g, positions=positions,
-                                 nodes=data).opts(width=width,
+                                 nodes=node_df).opts(width=width,
                                             height=height, 
                                             xaxis=None, yaxis=None, edge_alpha=0.5,
                                             cmap=cmap, node_color=hv.dim(color),
                                             node_line_color="white", title=title,
-                                            node_size=0.5*node_size*(1+hv.dim("size")/maxsize))
+                                            node_size=0.5*node_size*(1+hv.dim("size")/maxsize),
+                                            colorbar=True, tools=tools)
     return fig
 
 def mapper_fig(g, positions, node_df=None, color=[], width=800, 
@@ -78,7 +113,8 @@ def mapper_fig(g, positions, node_df=None, color=[], width=800,
                                     height, node_size, cmap, title)
     elif isinstance(color, list):
         if (len(color) == 0)&(node_df is not None):
-            color = [x for x in node_df.columns if x not in ["indices", "index"]]
+            color = [x for x in node_df.columns if x not in ["indices", "index", 
+                                                             "high", "low"]]
         color_dict = {c:_build_holoviews_fig(g, positions, node_df, c, width, 
                                              height, node_size,
                                              cmap, title) for c in color}
