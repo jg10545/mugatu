@@ -36,7 +36,7 @@ def _build_node_dataset(df, cluster_indices, lenses={}, include_indices=True, nu
     rel_means = (node_df[mean_cols] - node_df[mean_cols].mean())/node_df[mean_cols].std()
     sorted_means = rel_means.values.argsort(1)
     
-    cols = list(df.columns)
+    cols = [str(c) for c in list(df.columns)]
     highest = sorted_means[:,-num:][:,::-1]
     node_df["high"] = [", ".join([cols[i] for i in highest[j,:] if 
                                      rel_means.values[j,i] > 0]) for j in
@@ -46,7 +46,7 @@ def _build_node_dataset(df, cluster_indices, lenses={}, include_indices=True, nu
                                 rel_means.values[j,i] < 0]) for j in 
                       range(len(lowest))]
     
-    node_df = node_df.drop(mean_cols,1)
+    #node_df = node_df.drop(mean_cols,1)
     
     if len(lenses) > 0:
         lens_df = pd.DataFrame(lenses, index=df.index)
@@ -60,17 +60,20 @@ def _build_node_dataset(df, cluster_indices, lenses={}, include_indices=True, nu
         
 
 def _build_holoviews_fig(g, positions, node_df=None, color=[], width=800, 
-                         height=600, node_size=20, cmap="plasma", title=""):
+                         height=600, node_size=20, cmap="plasma", title="",
+                         tooltips=None):
     """
     
     """
     maxsize = np.max(node_df["size"])
     if node_df is not None:
-        tooltips = [
-            ('Index', '@index'),
-            ('High', '@high'),
-            ('Low', '@low')
-            ]  
+        if tooltips is None:
+            tooltips = [
+                ('Index', '@index'),
+                ('Size', '@size'),
+                ('High', '@high'),
+                ('Low', '@low')
+                ]  
         if "indices" in node_df.columns:
             tooltips.append(('Indices', '@indices'))
         tools = [HoverTool(tooltips=tooltips)]

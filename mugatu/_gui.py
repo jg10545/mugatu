@@ -10,6 +10,7 @@ import networkx as nx
 import panel as pn
 import holoviews as hv
 import io
+import logging
 
 from mugatu._util import _lens_dict
 from mugatu._mapper import build_mapper_graph
@@ -30,7 +31,8 @@ def _build_widgets(colnames, lenses, title=""):
     go_button = pn.widgets.Button(name="PUNCH IT, CHEWIE", button_type="success")
     progress = pn.indicators.Progress(name='Progress', value=100, width=600, active=False)
     pca_dim = pn.widgets.IntInput(name="PCA dimension (0 to disable)", value=max(int(len(colnames)/2),2))
-    k = pn.widgets.IntInput(name="k", value=5)
+    k = pn.widgets.IntInput(name="k (0 to use OPTICS)", value=5)
+    min_samples = pn.widgets.IntInput(name="min_samples", value=5)
     num_intervals = pn.widgets.IntInput(name="Number of intervals", value=5)
     overlap_frac = pn.widgets.FloatInput(name="Overlap fraction", value=0.25)
     balance = pn.widgets.Checkbox(name="Balance intervals", value=False)
@@ -51,13 +53,15 @@ def _build_widgets(colnames, lenses, title=""):
         pn.Row(
             pca_dim,
             k,
-            include_indices
+            min_samples,
+            #include_indices
         ),
         pn.Row(
             num_intervals,
             overlap_frac,
             balance
-        )
+        ),
+        include_indices
     ),
     pn.layout.Divider(),
     pn.Row(go_button, progress))
@@ -85,6 +89,7 @@ def _build_widgets(colnames, lenses, title=""):
            "progress":progress,
            "layout":layout,
            "k":k, 
+           "min_samples":min_samples,
            "pca_dim":pca_dim,
            "include_indices":include_indices,
            "fig_panel":fig_panel,
@@ -153,6 +158,12 @@ class Mapperator(object):
         self.df = df
         self.lens_data = lens_data
         self.color_data = color_data
+        # what color options do we have for the figure?
+        self._color_names = compute
+        if lens_data is not None:
+            self._color_names += list(lens_data.keys())
+        if color_data is not None:
+            self._color_names += list(color_data.keys())
         self._node_df = None
         self._title = title
         include = df.columns.to_list()
@@ -186,6 +197,7 @@ class Mapperator(object):
                                         f = w["overlap_frac"].value, 
                                         balance = w["balance"].value,
                                         pca_dim = w["pca_dim"].value,
+                                        min_samples=w["min_samples"].value,
                                         k = w["k"].value)
         self._cluster_indices = cluster_indices
         self._g = g
@@ -202,6 +214,7 @@ class Mapperator(object):
         
     def _update_fig(self):
         fig = mapper_fig(self._g, self._pos, node_df=self._node_df, width=600,
+                         color=self._color_names,
                          title=self._title)
         fig = pn.panel(fig)
         self._widgets["fig_panel"][0] = fig[0]
@@ -232,22 +245,27 @@ class Mapperator(object):
         self._widgets["progress"].value = 0
         self._widgets["progress"].active = True
         # update lenses if necessary
+        logging.info("updating lenses")
         self._update_lens()
         self._widgets["progress"].value = 20
         
         # build mapper graph
+        logging.info("building mapper graph")
         self._build_mapper_graph()
         self._widgets["progress"].value = 40
         
         # build node dataframe
+        logging.info("computing node statistics")
         self._build_node_df()
         self._widgets["progress"].value = 60
         
         # compute layout for visualization
+        logging.info("computing graph layout")
         self._compute_node_positions()
         self._widgets["progress"].value = 80
         
         # build holoviews figure
+        logging.info("building figure")
         self._update_fig()
         self._widgets["progress"].value = 100
         # DONE

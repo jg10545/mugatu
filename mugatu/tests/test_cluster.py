@@ -103,17 +103,12 @@ def test_compute_clusters_optics():
     indices = compute_clusters(df, cover, pca_dim=False, min_samples=min_samples)
     assert len(indices) >= 1
     
-def test_compute_clusters_missing_kwargs():
-    N = 1000
-    df = pd.DataFrame({"x":np.random.normal(0,1,N), "y":np.random.normal(0,1,N)}, index=np.arange(N)+N)
-    cover = [np.arange(N,int(1.5*N)), np.arange(int(1.4*N), int(1.9*N))]
-    with pytest.raises(UnboundLocalError):
-        indices = compute_clusters(df, cover)
-        
+    
 def test_compute_clusters_conflicting_kwargs():
     N = 1000
     df = pd.DataFrame({"x":np.random.normal(0,1,N), "y":np.random.normal(0,1,N)}, index=np.arange(N)+N)
     cover = [np.arange(N,int(1.5*N)), np.arange(int(1.4*N), int(1.9*N))]
     with pytest.raises(UnboundLocalError):
-        indices = compute_clusters(df, cover, k=5, min_samples=10)
+        indices = compute_clusters(df, cover, pca_dim=False,
+                                   k=0, min_samples=None)
     

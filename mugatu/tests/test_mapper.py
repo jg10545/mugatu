@@ -21,12 +21,13 @@ def test_build_mapper_graph_one_lens():
     f = 0.1
     balance = False
     pca_dim = 0
-    k = 2
+    min_samples = 5
     clust_ind, g = build_mapper_graph(data, lens, num_intervals=num_intervals, f=f, balance=balance,
-                                     pca_dim=pca_dim, k=k)
+                                     pca_dim=pca_dim, min_samples=min_samples)
     assert isinstance(clust_ind, list)
     assert isinstance(g, nx.Graph)
-    assert len(g.nodes) == num_intervals * k
+    assert len(g.nodes) >= num_intervals
+    #assert len(g.nodes) == num_intervals * k
 
 def test_build_mapper_graph_two_lenses():
     N = 100
@@ -37,9 +38,11 @@ def test_build_mapper_graph_two_lenses():
     f = 0.1
     balance = False
     pca_dim = 0
-    k = 2
+    #k = 2
+    min_samples = 5
     clust_ind, g = build_mapper_graph(data, lens, lens2=lens2, num_intervals=num_intervals, f=f, balance=balance,
-                                     pca_dim=pca_dim, k=k)
+                                     pca_dim=pca_dim, min_samples=min_samples)
     assert isinstance(clust_ind, list)
     assert isinstance(g, nx.Graph)
-    assert len(g.nodes) == num_intervals**2 * k
+    assert len(g.nodes) >= num_intervals
+    #assert len(g.nodes) == num_intervals**2 * k

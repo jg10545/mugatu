@@ -89,7 +89,7 @@ def reduce_and_cluster_optics(X, index, pca_dim=4, min_samples=5):
     I = sklearn.cluster.OPTICS(min_samples=min_samples).fit_predict(X)
     k = I.max() + 1
     if I.min() < 0:
-        logging.info("including an outlier cluster")
+        logging.debug("including an outlier cluster")
     
     #indices = [index[I == i] for i in range(k)]
     indices = [index[I == i] for i in range(-1, k)]
@@ -100,7 +100,7 @@ def reduce_and_cluster_optics(X, index, pca_dim=4, min_samples=5):
 
 
 
-def compute_clusters(df, cover, pca_dim=4, min_samples=None, k=None, **kwargs):
+def compute_clusters(df, cover, pca_dim=4, min_samples=5, k=None, **kwargs):
     """
     Input a dataset and cover, run k-means or OPTICS against every index set in the
     cover, and return a list containing the indices assigned to each cluster
@@ -114,14 +114,17 @@ def compute_clusters(df, cover, pca_dim=4, min_samples=None, k=None, **kwargs):
     """
     # build a dask delayed task for every filtered region of the data, 
     # so that they can be computed in parallel
-    # K-MEANS CASE
-    if (min_samples is None)&(k is not None):
-        tasks = [dask.delayed(reduce_and_cluster)(np.ascontiguousarray(df.loc[c,:].values), 
-                                              c, pca_dim=pca_dim, k=k, **kwargs) for c in cover]
     # OPTICS CASE
-    elif (min_samples is not None)&(k is None):
+    if (min_samples is not None)&((k is None)|(k == 0)):
+        logging.debug("clustering with OPTICS")
         tasks = [dask.delayed(reduce_and_cluster_optics)(np.ascontiguousarray(df.loc[c,:].values), 
-                                              c, pca_dim=pca_dim, min_samples=min_samples) for c in cover]
+                                              c, pca_dim=pca_dim, min_samples=min_samples)
+     for c in cover]
+    # K-MEANS CASE
+    elif (k is not None)&(k > 0):
+        logging.debug("clustering with k-means")
+        tasks = [dask.delayed(reduce_and_cluster)(np.ascontiguousarray(df.loc[c,:].values), 
+                                              c, pca_dim=pca_dim, k=k, min_points_per_cluster=min_samples, **kwargs) for c in cover]
     else:
         logging.critical("i don't know what to do with these clustering hyperparameters")
     results = dask.compute(tasks)
