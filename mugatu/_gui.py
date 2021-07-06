@@ -12,6 +12,7 @@ import panel as pn
 import holoviews as hv
 import io
 import logging
+import mlflow
 
 from mugatu._util import _lens_dict
 from mugatu._mapper import build_mapper_graph
@@ -38,6 +39,11 @@ def _build_widgets(colnames, lenses, title=""):
     overlap_frac = pn.widgets.FloatInput(name="Overlap fraction", value=0.25)
     balance = pn.widgets.Checkbox(name="Balance intervals", value=False)
     include_indices = pn.widgets.Checkbox(name="Include indices in visualization", value=False)
+    experiment_name = pn.widgets.TextInput(name="MLflow experiment", value="derelicte")
+    log_button = pn.widgets.Button(name="Log to MLflow for all posterity",
+                                   button_type="primary", align="end")
+    
+    mlflow_layout = pn.Row(experiment_name, log_button)
     model_layout = pn.Column(
     pn.Row(
         pn.Column(
@@ -68,7 +74,7 @@ def _build_widgets(colnames, lenses, title=""):
     pn.Row(go_button, progress))
     
     # DISPLAY WIDGETS
-    pos_button = pn.widgets.Button(name="Reset layout", button_type="primary")
+    #pos_button = pn.widgets.Button(name="Reset layout", button_type="primary")
     hmap = hv.HoloMap({c:hv.Points(data=pd.DataFrame({"x":[0,1], "y":[1,2]})).opts(color=c) for c in ["red","blue"]})
     fig_panel = pn.panel(hmap)
     
@@ -82,7 +88,8 @@ def _build_widgets(colnames, lenses, title=""):
                                          filename=filename,
                                          callback=_save_callback)
     layout = pn.layout.Tabs(("Modeling", model_layout), 
-                            ("Visualization", pn.Column(fig_panel, sav_button)))
+                            ("Visualization", pn.Column(fig_panel, sav_button,
+                                                        mlflow_layout)))
     return {"cross_selector":cross_selector, 
            "lens1":lens1,
            "lens2":lens2,
@@ -94,11 +101,13 @@ def _build_widgets(colnames, lenses, title=""):
            "pca_dim":pca_dim,
            "include_indices":include_indices,
            "fig_panel":fig_panel,
-           "pos_button":pos_button,
+           #"pos_button":pos_button,
            "num_intervals":num_intervals,
            "overlap_frac":overlap_frac,
            "balance":balance,
-           "sav_button":sav_button}
+           "sav_button":sav_button,
+           "experiment_name":experiment_name,
+           "log_button":log_button}
 
 
 
@@ -137,7 +146,7 @@ class Mapperator(object):
     """
     
     def __init__(self, df, lens_data=None, compute=["svd", "isolation_forest", "l2"],
-                 color_data=None, title=""):
+                 color_data=None, title="", mlflow_uri=None):
         """
         :df: pandas DataFrame raw data to cluster on. The dataframe index
             will be used to relate nodes on the Mapper graph back to data
@@ -154,6 +163,7 @@ class Mapperator(object):
         :color_data: pandas DataFrame (or dictionary of arrays); additional data to use for coloring
             nodes in the Mapper graph
         :title: string; title for the figure
+        :mlflow_uri: string; location of MLflow server for logging results
         """
         # store data and precompute lenses
         self.df = df
@@ -179,10 +189,14 @@ class Mapperator(object):
         self._old_variables_to_include = include
         self._compute = compute
         self.lens_dict = _compute_lenses(df, include, lens_data, compute=compute)
+        self.mlflow_uri = mlflow_uri
+        if mlflow_uri is not None:
+            mlflow.set_tracking_uri(mlflow_uri)
         # set up gui
         self._widgets = _build_widgets(list(df.columns), list(self.lens_dict.keys()),
                                        title)
         self._widgets["go_button"].on_click(self.build_mapper_model)
+        self._widgets["log_button"].on_click(self._mlflow_callback)
         #self._widgets["pos_button"].on_click(self.update_node_positions)
         
     def _update_lens(self):
@@ -281,6 +295,25 @@ class Mapperator(object):
             
         filename = f"mugatu_{alg}_{lens}.html"
         self._widgets["sav_button"].filename = filename
+        
+    def _mlflow_callback(self, *events):
+        """
+        
+        """
+        if self.mlflow_uri is not None:
+            mlflow.set_experiment(self._widgets["experiment_name"].value)
+            p = self._params
+            params = {k:p[k] for k in p if k not in ["include"]}
+
+            # get holoviews html file as a BytesIO object
+            bio = self._widgets["sav_button"].callback()
+            # write to file
+            with open("figure.html", "wb") as f:
+                f.write(bio.read())
+    
+            with mlflow.start_run():
+                mlflow.log_params(params)
+                mlflow.log_artifact("figure.html")
         
         
     def build_mapper_model(self, *events):
