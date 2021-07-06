@@ -177,7 +177,7 @@ class Mapperator(object):
         self._widgets = _build_widgets(list(df.columns), list(self.lens_dict.keys()),
                                        title)
         self._widgets["go_button"].on_click(self.build_mapper_model)
-        self._widgets["pos_button"].on_click(self.update_node_positions)
+        #self._widgets["pos_button"].on_click(self.update_node_positions)
         
     def _update_lens(self):
         p = self._params
@@ -188,13 +188,6 @@ class Mapperator(object):
         
     def _build_mapper_graph(self):
         p = self._params
-        #w = self._widgets
-        #lens = self.lens_dict[w["lens1"].value]
-        #lens2 = w["lens2"].value
-        #if lens2 == "None":
-        #    lens2 = None
-        #else:
-        #    lens2 = self.lens_dict[lens2]
         lens = self.lens_dict[p["lens1"]]
         lens2 = p["lens2"]
         if lens2 is not None:
@@ -268,6 +261,21 @@ class Mapperator(object):
             params["lens2"] = None
         self._params = params
         
+    def _update_filename(self):
+        p = self._params
+        if p["k"] > 0:
+            alg = "kmeans"
+        else:
+            alg = "OPTICS"
+            
+        if p["lens2"] is None:
+            lens = p["lens1"]
+        else:
+            lens = p["lens1"] + "+" + p["lens2"]
+            
+        filename = f"mugatu_{alg}_{lens}.html"
+        self._widgets["sav_button"].filename = filename
+        
         
     def build_mapper_model(self, *events):
         """
@@ -277,6 +285,7 @@ class Mapperator(object):
         self._widgets["progress"].value = 0
         self._widgets["progress"].active = True
         self._collect_params()
+        self._update_filename()
         # update lenses if necessary
         logging.info("updating lenses")
         self._update_lens()
