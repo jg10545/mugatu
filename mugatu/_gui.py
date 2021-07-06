@@ -180,28 +180,33 @@ class Mapperator(object):
         self._widgets["pos_button"].on_click(self.update_node_positions)
         
     def _update_lens(self):
-        include = self._widgets["cross_selector"].values
-        self.lens_dict = _compute_lenses(self.df, include, self.lens_data,
+        p = self._params
+        self.lens_dict = _compute_lenses(self.df, p["include"], self.lens_data,
                                           self._old_variables_to_include, self.lens_dict,
                                           compute=self._compute)
-        self._old_variables_to_include = include
+        self._old_variables_to_include = p["include"]
         
     def _build_mapper_graph(self):
-        w = self._widgets
-        lens = self.lens_dict[w["lens1"].value]
-        lens2 = w["lens2"].value
-        if lens2 == "None":
-            lens2 = None
-        else:
+        p = self._params
+        #w = self._widgets
+        #lens = self.lens_dict[w["lens1"].value]
+        #lens2 = w["lens2"].value
+        #if lens2 == "None":
+        #    lens2 = None
+        #else:
+        #    lens2 = self.lens_dict[lens2]
+        lens = self.lens_dict[p["lens1"]]
+        lens2 = p["lens2"]
+        if lens2 is not None:
             lens2 = self.lens_dict[lens2]
         
         cluster_indices, g = build_mapper_graph(self.df, lens, lens2, 
-                                        num_intervals = w["num_intervals"].value,
-                                        f = w["overlap_frac"].value, 
-                                        balance = w["balance"].value,
-                                        pca_dim = w["pca_dim"].value,
-                                        min_samples=w["min_samples"].value,
-                                        k = w["k"].value)
+                                        num_intervals = p["num_intervals"],
+                                        f = p["overlap_frac"], 
+                                        balance = p["balance"],
+                                        pca_dim = p["pca_dim"],
+                                        min_samples=p["min_samples"],
+                                        k = p["k"])
         self._cluster_indices = cluster_indices
         self._g = g
         
@@ -210,10 +215,11 @@ class Mapperator(object):
         # by, combine that with the lens dict. The visualization will 
         # automatically add all of them as coloring options.
         exog = _combine_dictionaries(self.lens_dict, self.color_data)
+        p = self._params
         self._node_df = _build_node_dataset(self.df, 
                                             self._cluster_indices, 
                                             lenses=exog, 
-                                            include_indices=self._widgets["include_indices"].value)
+                                            include_indices=p["include_indices"])
         
     def _update_fig(self):
         fig = mapper_fig(self._g, self._pos, node_df=self._node_df, width=600,
@@ -241,6 +247,28 @@ class Mapperator(object):
         self._compute_node_positions()
         self._update_fig()
         
+    def _collect_params(self):
+        """
+        Get any important parameters from the GUI
+        """
+        w = self._widgets
+        params = {
+            "include":w["cross_selector"].values,
+            "lens1":w["lens1"].value,
+            "lens2":w["lens2"].value,
+            "num_intervals":w["num_intervals"].value,
+            "overlap_frac":w["overlap_frac"].value, 
+            "balance":w["balance"].value,
+            "pca_dim":w["pca_dim"].value,
+            "min_samples":w["min_samples"].value,
+            "k":w["k"].value,
+            "include_indices":w["include_indices"].value
+            }
+        if params["lens2"] == "None":
+            params["lens2"] = None
+        self._params = params
+        
+        
     def build_mapper_model(self, *events):
         """
         Pull parameters from the GUI, run the mapper algorithm, and 
@@ -248,6 +276,7 @@ class Mapperator(object):
         """
         self._widgets["progress"].value = 0
         self._widgets["progress"].active = True
+        self._collect_params()
         # update lenses if necessary
         logging.info("updating lenses")
         self._update_lens()
