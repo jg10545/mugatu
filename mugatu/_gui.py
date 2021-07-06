@@ -142,7 +142,7 @@ class Mapperator(object):
         :df: pandas DataFrame raw data to cluster on. The dataframe index
             will be used to relate nodes on the Mapper graph back to data
             points.
-        :lens_data: dictionary of arrays; additional lenses that can be used
+        :lens_data: pandas DataFrame (or dictionary of arrays); additional lenses that can be used
             to filter your data
         :compute: listof strings; generic lenses to precompute. can include:
             -"svd" computes first and second singular value decomposition vectors
@@ -151,12 +151,18 @@ class Mapperator(object):
                 variance, then records the L2-norm of each data point
             -"kde" estimates local density of each record using a kernel density
                 estimator. Very slow on large datasets!
-        :color_data: dictionary of arrays; additional data to use for coloring
+        :color_data: pandas DataFrame (or dictionary of arrays); additional data to use for coloring
             nodes in the Mapper graph
         :title: string; title for the figure
         """
         # store data and precompute lenses
         self.df = df
+        # if lens_data or color_data are dataframes- turn them
+        # into dictionaries
+        if isinstance(lens_data, pd.DataFrame):
+            lens_data = {c:lens_data[c].values for c in lens_data.columns}
+        if isinstance(color_data, pd.DataFrame):
+            color_data = {c:color_data[c].values for c in color_data.columns}
         self.lens_data = lens_data
         self.color_data = color_data
         # what color options do we have for the figure?
