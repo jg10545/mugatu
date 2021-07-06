@@ -26,9 +26,9 @@ num_intervals = 2
 f = 0.1
 balance = False
 pca_dim = 0
-k = 2
+min_samples = 5
 clust_ind, g = build_mapper_graph(data, lens, num_intervals=num_intervals, f=f, balance=balance,
-                                     pca_dim=pca_dim, k=k)
+                                     pca_dim=pca_dim, min_samples=min_samples)
 
 def test_build_node_dataset():
     ds = _build_node_dataset(data, clust_ind, lenses={}, include_indices=True)

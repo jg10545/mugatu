@@ -28,6 +28,9 @@ def _compute_1D_cover_indices(index, lens, num_intervals, f, balance=False):
     can be used to index the original dataframe
     """
     assert len(index) == len(lens)
+    # EMPTY CASE: for when the a lens has empty regions
+    if len(lens) == 0:
+        return []
     indices = []
     if balance:
         pass

@@ -5,11 +5,13 @@ Created on Sun Jun  6 20:59:35 2021
 
 @author: joe
 """
+import numpy as np
 import pandas as pd
 import networkx as nx
 import panel as pn
 import holoviews as hv
 import io
+import logging
 
 from mugatu._util import _lens_dict
 from mugatu._mapper import build_mapper_graph
@@ -30,7 +32,8 @@ def _build_widgets(colnames, lenses, title=""):
     go_button = pn.widgets.Button(name="PUNCH IT, CHEWIE", button_type="success")
     progress = pn.indicators.Progress(name='Progress', value=100, width=600, active=False)
     pca_dim = pn.widgets.IntInput(name="PCA dimension (0 to disable)", value=max(int(len(colnames)/2),2))
-    k = pn.widgets.IntInput(name="k", value=5)
+    k = pn.widgets.IntInput(name="k (0 to use OPTICS)", value=5)
+    min_samples = pn.widgets.IntInput(name="min_samples", value=5)
     num_intervals = pn.widgets.IntInput(name="Number of intervals", value=5)
     overlap_frac = pn.widgets.FloatInput(name="Overlap fraction", value=0.25)
     balance = pn.widgets.Checkbox(name="Balance intervals", value=False)
@@ -51,13 +54,15 @@ def _build_widgets(colnames, lenses, title=""):
         pn.Row(
             pca_dim,
             k,
-            include_indices
+            min_samples,
+            #include_indices
         ),
         pn.Row(
             num_intervals,
             overlap_frac,
             balance
-        )
+        ),
+        include_indices
     ),
     pn.layout.Divider(),
     pn.Row(go_button, progress))
@@ -85,6 +90,7 @@ def _build_widgets(colnames, lenses, title=""):
            "progress":progress,
            "layout":layout,
            "k":k, 
+           "min_samples":min_samples,
            "pca_dim":pca_dim,
            "include_indices":include_indices,
            "fig_panel":fig_panel,
@@ -153,6 +159,14 @@ class Mapperator(object):
         self.df = df
         self.lens_data = lens_data
         self.color_data = color_data
+        # what color options do we have for the figure?
+        self._color_names = [x for x in compute if x != "svd"]
+        if "svd" in compute:
+            self._color_names += ["svd_1", "svd_2"]
+        if lens_data is not None:
+            self._color_names += list(lens_data.keys())
+        if color_data is not None:
+            self._color_names += list(color_data.keys())
         self._node_df = None
         self._title = title
         include = df.columns.to_list()
@@ -163,30 +177,29 @@ class Mapperator(object):
         self._widgets = _build_widgets(list(df.columns), list(self.lens_dict.keys()),
                                        title)
         self._widgets["go_button"].on_click(self.build_mapper_model)
-        self._widgets["pos_button"].on_click(self.update_node_positions)
+        #self._widgets["pos_button"].on_click(self.update_node_positions)
         
     def _update_lens(self):
-        include = self._widgets["cross_selector"].values
-        self.lens_dict = _compute_lenses(self.df, include, self.lens_data,
+        p = self._params
+        self.lens_dict = _compute_lenses(self.df, p["include"], self.lens_data,
                                           self._old_variables_to_include, self.lens_dict,
                                           compute=self._compute)
-        self._old_variables_to_include = include
+        self._old_variables_to_include = p["include"]
         
     def _build_mapper_graph(self):
-        w = self._widgets
-        lens = self.lens_dict[w["lens1"].value]
-        lens2 = w["lens2"].value
-        if lens2 == "None":
-            lens2 = None
-        else:
+        p = self._params
+        lens = self.lens_dict[p["lens1"]]
+        lens2 = p["lens2"]
+        if lens2 is not None:
             lens2 = self.lens_dict[lens2]
         
         cluster_indices, g = build_mapper_graph(self.df, lens, lens2, 
-                                        num_intervals = w["num_intervals"].value,
-                                        f = w["overlap_frac"].value, 
-                                        balance = w["balance"].value,
-                                        pca_dim = w["pca_dim"].value,
-                                        k = w["k"].value)
+                                        num_intervals = p["num_intervals"],
+                                        f = p["overlap_frac"], 
+                                        balance = p["balance"],
+                                        pca_dim = p["pca_dim"],
+                                        min_samples=p["min_samples"],
+                                        k = p["k"])
         self._cluster_indices = cluster_indices
         self._g = g
         
@@ -195,13 +208,15 @@ class Mapperator(object):
         # by, combine that with the lens dict. The visualization will 
         # automatically add all of them as coloring options.
         exog = _combine_dictionaries(self.lens_dict, self.color_data)
+        p = self._params
         self._node_df = _build_node_dataset(self.df, 
                                             self._cluster_indices, 
                                             lenses=exog, 
-                                            include_indices=self._widgets["include_indices"].value)
+                                            include_indices=p["include_indices"])
         
     def _update_fig(self):
         fig = mapper_fig(self._g, self._pos, node_df=self._node_df, width=600,
+                         color=self._color_names,
                          title=self._title)
         fig = pn.panel(fig)
         self._widgets["fig_panel"][0] = fig[0]
@@ -215,7 +230,8 @@ class Mapperator(object):
                              self._node_df["svd_2"].values[i]) for i in range(len(self._node_df))}
         else:
             pos_priors = None
-        self._pos = nx.layout.fruchterman_reingold_layout(self._g, pos=pos_priors)
+        k = 0.01/np.sqrt(len(self._g.nodes))
+        self._pos = nx.layout.fruchterman_reingold_layout(self._g, k=k, pos=pos_priors)
         
     def update_node_positions(self, *events):
         """
@@ -224,6 +240,43 @@ class Mapperator(object):
         self._compute_node_positions()
         self._update_fig()
         
+    def _collect_params(self):
+        """
+        Get any important parameters from the GUI
+        """
+        w = self._widgets
+        params = {
+            "include":w["cross_selector"].values,
+            "lens1":w["lens1"].value,
+            "lens2":w["lens2"].value,
+            "num_intervals":w["num_intervals"].value,
+            "overlap_frac":w["overlap_frac"].value, 
+            "balance":w["balance"].value,
+            "pca_dim":w["pca_dim"].value,
+            "min_samples":w["min_samples"].value,
+            "k":w["k"].value,
+            "include_indices":w["include_indices"].value
+            }
+        if params["lens2"] == "None":
+            params["lens2"] = None
+        self._params = params
+        
+    def _update_filename(self):
+        p = self._params
+        if p["k"] > 0:
+            alg = "kmeans"
+        else:
+            alg = "OPTICS"
+            
+        if p["lens2"] is None:
+            lens = p["lens1"]
+        else:
+            lens = p["lens1"] + "+" + p["lens2"]
+            
+        filename = f"mugatu_{alg}_{lens}.html"
+        self._widgets["sav_button"].filename = filename
+        
+        
     def build_mapper_model(self, *events):
         """
         Pull parameters from the GUI, run the mapper algorithm, and 
@@ -231,23 +284,30 @@ class Mapperator(object):
         """
         self._widgets["progress"].value = 0
         self._widgets["progress"].active = True
+        self._collect_params()
+        self._update_filename()
         # update lenses if necessary
+        logging.info("updating lenses")
         self._update_lens()
         self._widgets["progress"].value = 20
         
         # build mapper graph
+        logging.info("building mapper graph")
         self._build_mapper_graph()
         self._widgets["progress"].value = 40
         
         # build node dataframe
+        logging.info("computing node statistics")
         self._build_node_df()
         self._widgets["progress"].value = 60
         
         # compute layout for visualization
+        logging.info("computing graph layout")
         self._compute_node_positions()
         self._widgets["progress"].value = 80
         
         # build holoviews figure
+        logging.info("building figure")
         self._update_fig()
         self._widgets["progress"].value = 100
         # DONE
