@@ -18,7 +18,8 @@ requirements = ["numpy",
                 "pandas",
                 "holoviews",
                 "dask",
-                "panel"
+                "panel",
+                "mlflow"
                 ]
 
 setup_requirements = ['pytest-runner', ]
