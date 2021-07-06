@@ -5,6 +5,7 @@ Created on Sun Jun  6 20:59:35 2021
 
 @author: joe
 """
+import numpy as np
 import pandas as pd
 import networkx as nx
 import panel as pn
@@ -159,7 +160,9 @@ class Mapperator(object):
         self.lens_data = lens_data
         self.color_data = color_data
         # what color options do we have for the figure?
-        self._color_names = compute
+        self._color_names = [x for x in compute if x != "svd"]
+        if "svd" in compute:
+            self._color_names += ["svd_1", "svd_2"]
         if lens_data is not None:
             self._color_names += list(lens_data.keys())
         if color_data is not None:
@@ -228,7 +231,8 @@ class Mapperator(object):
                              self._node_df["svd_2"].values[i]) for i in range(len(self._node_df))}
         else:
             pos_priors = None
-        self._pos = nx.layout.fruchterman_reingold_layout(self._g, pos=pos_priors)
+        k = 0.01/np.sqrt(len(self._g.nodes))
+        self._pos = nx.layout.fruchterman_reingold_layout(self._g, k=k, pos=pos_priors)
         
     def update_node_positions(self, *events):
         """
