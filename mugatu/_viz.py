@@ -76,6 +76,11 @@ def _build_holoviews_fig(g, positions, node_df=None, color=[], width=800,
                 ]  
         if "indices" in node_df.columns:
             tooltips.append(('Indices', '@indices'))
+        if isinstance(color, str):
+            tooltips.append((color, "@"+color))
+        else:
+            for c in color:
+                tooltips.append((c, "@"+c))
         tools = [HoverTool(tooltips=tooltips)]
         node_df = hv.Dataset(node_df, kdims=list(node_df.columns))
     else:
