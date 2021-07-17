@@ -18,13 +18,16 @@ def reduce_and_cluster(X, index, pca_dim=4, k=5, min_points_per_cluster=1,
                        xmeans=False, aic=False, **kwargs):
     """
     Reduce the dimension of a dataset with PCA, cluster with
-    k-means, and return a list of indices assigned to each cluster
+    k-means or x-means, and return a list of indices assigned to each cluster
     
     :X: (N,d) array of raw data
     :index: (N,) array of indices used to identify data in original dataframe
     :pca_dim: int; dimension < d to reduce data to. 0 to disable.
     :k: number of clusters to look for
-    :min_points_per_cluster:
+    :min_points_per_cluster: int; guardrail to avoid finding clusters below
+        this size
+    :xmeans: if True, run x-means clustering with k initial clusters
+    :aic: if True and xmeans == True, use AIC instead of BIC with x-means
     :kwargs: keyword arguments to pass to faiss.Kmeans()
     """
     N = X.shape[0]
@@ -117,7 +120,11 @@ def compute_clusters(df, cover, pca_dim=4, min_samples=5, k=None,
     :cover: a list of arrays indexing the DataFrame, each corresponding to a different
         index set from the cover
     :pca_dim: number of dimensions to reduce to with PCA before clustering. 0 to skip this step
-    :k: number of clusters for k-means
+    :min_samples: int; guardrail to try to avoid returning clusters below this size
+    :k: number of clusters for k-means and x-means. set to 0 to use OPTICS
+    :xmeans: if True and k>0, use x-means clustering with k as the initial number
+        of clustering
+    :aic: if True and xmeans==True, use AIC instead of BIC for x-means clustering
     :kwargs: additional keyword arguments to pass to faiss.Kmeans()
     """
     # build a dask delayed task for every filtered region of the data, 
