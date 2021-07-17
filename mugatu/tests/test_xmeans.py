@@ -7,7 +7,7 @@ Created on Fri Jul 16 13:41:49 2021
 """
 import numpy as np
 
-from mugatu._xmeans import _kmeans, _compute_BIC, xmeans
+from mugatu._xmeans import _kmeans, _compute_BIC, _compute_xmeans
 
 
 
@@ -54,12 +54,12 @@ def test_aic():
     assert AIC_kmeans > AIC_scrambled
     
 
-def test_xmeans():
+def test_compute_xmeans():
     init_k = 3
     
     for aic in [True, False]:
         for min_size in [0,100]:
-            I = xmeans(X, aic=aic, init_k=init_k, min_size=min_size)
+            I = _compute_xmeans(X, aic=aic, init_k=init_k, min_size=min_size)
     
             assert I.shape == (X.shape[0],)
             assert I.max() >= init_k
