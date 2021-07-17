@@ -61,7 +61,7 @@ def _build_node_dataset(df, cluster_indices, lenses={}, include_indices=True, nu
 
 def _build_holoviews_fig(g, positions, node_df=None, color=[], width=800, 
                          height=600, node_size=20, cmap="plasma", title="",
-                         tooltips=None):
+                         tooltips=None, extra_tooltips=[]):
     """
     
     """
@@ -76,6 +76,8 @@ def _build_holoviews_fig(g, positions, node_df=None, color=[], width=800,
                 ]  
         if "indices" in node_df.columns:
             tooltips.append(('Indices', '@indices'))
+        for t in extra_tooltips:
+            tooltips.append(t)
         if isinstance(color, str):
             tooltips.append((color, "@"+color))
         else:
@@ -96,7 +98,8 @@ def _build_holoviews_fig(g, positions, node_df=None, color=[], width=800,
     return fig
 
 def mapper_fig(g, positions, node_df=None, color=[], width=800, 
-               height=600, node_size=20, cmap="plasma", title=""):
+               height=600, node_size=20, cmap="plasma", title="",
+               extra_tooltips=[]):
     """
     Generate a holoviews figure displaying a mapper graph
     
@@ -118,14 +121,16 @@ def mapper_fig(g, positions, node_df=None, color=[], width=800,
     """
     if isinstance(color, str):
         return _build_holoviews_fig(g, positions, node_df, color, width, 
-                                    height, node_size, cmap, title)
+                                    height, node_size, cmap, title,
+                                    extra_tooltips=extra_tooltips)
     elif isinstance(color, list):
         if (len(color) == 0)&(node_df is not None):
             color = [x for x in node_df.columns if x not in ["indices", "index", 
                                                              "high", "low"]]
         color_dict = {c:_build_holoviews_fig(g, positions, node_df, c, width, 
                                              height, node_size,
-                                             cmap, title) for c in color}
+                                             cmap, title, extra_tooltips=extra_tooltips)
+                      for c in color}
         return hv.HoloMap(color_dict, kdims=["Color nodes by"])
     else:
         assert False, "don't know what to do with the argument you passes to `color`"

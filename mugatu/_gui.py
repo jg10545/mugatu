@@ -33,8 +33,13 @@ def _build_widgets(colnames, lenses, title=""):
     go_button = pn.widgets.Button(name="PUNCH IT, CHEWIE", button_type="success")
     progress = pn.indicators.Progress(name='Progress', value=100, width=600, active=False)
     pca_dim = pn.widgets.IntInput(name="PCA dimension (0 to disable)", value=max(int(len(colnames)/2),2))
-    k = pn.widgets.IntInput(name="k (0 to use OPTICS)", value=5)
-    min_samples = pn.widgets.IntInput(name="min_samples", value=5)
+    cluster_select = pn.widgets.Select(name="Clustering method", 
+                                       options=["k-means", "x-means (AIC)", 
+                                                "x-means (BIC)", "OPTICS"],
+                                       value="k-means")
+    k = pn.widgets.IntInput(name="k (k-means and x-means only)", value=5)
+    min_samples = pn.widgets.IntInput(name="Minimum cluster size (OPTICS and x-means only)",
+                                      value=5)
     num_intervals = pn.widgets.IntInput(name="Number of intervals", value=5)
     overlap_frac = pn.widgets.FloatInput(name="Overlap fraction", value=0.25)
     balance = pn.widgets.Checkbox(name="Balance intervals", value=False)
@@ -58,17 +63,18 @@ def _build_widgets(colnames, lenses, title=""):
     pn.layout.Divider(),
     pn.Column(
         pn.Row(
-            pca_dim,
-            k,
-            min_samples,
-            #include_indices
-        ),
-        pn.Row(
             num_intervals,
             overlap_frac,
-            balance
+            pca_dim
         ),
-        include_indices
+        pn.Row(
+            cluster_select,
+            k,
+            min_samples
+            ),
+        pn.Row(
+            balance, include_indices
+            )
     ),
     pn.layout.Divider(),
     pn.Row(go_button, progress))
@@ -101,13 +107,13 @@ def _build_widgets(colnames, lenses, title=""):
            "pca_dim":pca_dim,
            "include_indices":include_indices,
            "fig_panel":fig_panel,
-           #"pos_button":pos_button,
            "num_intervals":num_intervals,
            "overlap_frac":overlap_frac,
            "balance":balance,
            "sav_button":sav_button,
            "experiment_name":experiment_name,
-           "log_button":log_button}
+           "log_button":log_button,
+           "cluster_select":cluster_select}
 
 
 
@@ -197,7 +203,6 @@ class Mapperator(object):
                                        title)
         self._widgets["go_button"].on_click(self.build_mapper_model)
         self._widgets["log_button"].on_click(self._mlflow_callback)
-        #self._widgets["pos_button"].on_click(self.update_node_positions)
         
     def _update_lens(self):
         p = self._params
@@ -212,14 +217,22 @@ class Mapperator(object):
         lens2 = p["lens2"]
         if lens2 is not None:
             lens2 = self.lens_dict[lens2]
-        
+            
+        # parse the clustering algorithm selection
+        c = p["cluster_select"]
+        k = p["k"]
+        xmeans = "x-means" in c
+        aic = "AIC" in c
+        if c == "OPTICS":
+            k = 0
+
         cluster_indices, g = build_mapper_graph(self.df, lens, lens2, 
                                         num_intervals = p["num_intervals"],
                                         f = p["overlap_frac"], 
                                         balance = p["balance"],
                                         pca_dim = p["pca_dim"],
                                         min_samples=p["min_samples"],
-                                        k = p["k"])
+                                        k=k, xmeans=xmeans, aic=aic)
         self._cluster_indices = cluster_indices
         self._g = g
         
@@ -275,7 +288,8 @@ class Mapperator(object):
             "pca_dim":w["pca_dim"].value,
             "min_samples":w["min_samples"].value,
             "k":w["k"].value,
-            "include_indices":w["include_indices"].value
+            "include_indices":w["include_indices"].value,
+            "cluster_select":w["cluster_select"].value
             }
         if params["lens2"] == "None":
             params["lens2"] = None
@@ -283,10 +297,11 @@ class Mapperator(object):
         
     def _update_filename(self):
         p = self._params
-        if p["k"] > 0:
-            alg = "kmeans"
-        else:
-            alg = "OPTICS"
+        #if p["k"] > 0:
+        #    alg = "kmeans"
+        #else:
+        #    alg = "OPTICS"
+        alg = p["cluster_select"].replace(" ","_").replace("(","").replace(")","")
             
         if p["lens2"] is None:
             lens = p["lens1"]

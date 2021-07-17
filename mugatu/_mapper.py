@@ -11,7 +11,7 @@ import mugatu._graph
 
 
 def build_mapper_graph(df, lens, lens2=None, num_intervals=5, f=0.1, balance=False,
-                       pca_dim=4, min_samples=5, **kwargs):
+                       pca_dim=4, k=None, min_samples=5, xmeans=False, aic=False, **kwargs):
     """
     Run the entire mapper pipeline!
     
@@ -23,7 +23,11 @@ def build_mapper_graph(df, lens, lens2=None, num_intervals=5, f=0.1, balance=Fal
     :f: float; overlap fraction between intervals
     :balance: bool; whether to adjust cover so that occupation is approximately equal
     :pca_dim: int; dimension to reduce data to within each index set. 0 to skip the PCA step.
-    :min_samples: int; min_samples parameter for OPTICS
+    :k: int; number of clusters for k-means or x-means. Set to 0 to use OPTICS.
+    :min_samples: int; guardrail to try to avoid finding clusters smaller than this
+    :xmeans: if True and k > 0, run x-means instead of k-means with k as the initial
+        number of clusters
+    :aic: if True and xmeans == True, run x-means using AIC instead of BIC
     
     Returns:
     :cluster_indices: a list containing the raw-data indices associated with each cluster
@@ -34,7 +38,8 @@ def build_mapper_graph(df, lens, lens2=None, num_intervals=5, f=0.1, balance=Fal
                                                 f=f, balance=balance)
     
     cluster_indices = mugatu._cluster.compute_clusters(df, cover, pca_dim=pca_dim, 
-                                                       min_samples=min_samples, 
+                                                       min_samples=min_samples, k=k,
+                                                       xmeans=xmeans, aic=aic,
                                                        **kwargs)
     g = mugatu._graph.build_graph_from_indices(cluster_indices)
     return cluster_indices, g
