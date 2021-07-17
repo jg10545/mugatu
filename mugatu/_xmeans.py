@@ -10,13 +10,13 @@ import faiss
 import logging
 
 
-def _kmeans(X,k):
+def _kmeans(X,k, **kwargs):
     """
     Wrapper for faiss' kmeans tool. Returns indices
     assigned to each cluster and a matrix of
     cluster centroids
     """
-    kmeans = faiss.Kmeans(X.shape[1] ,k)
+    kmeans = faiss.Kmeans(X.shape[1] ,k, **kwargs)
     kmeans.train(X)
     D, I = kmeans.index.search(X, 1)
     I = I.ravel()
@@ -54,7 +54,7 @@ def _compute_BIC(X, centroids, I, aic=False):
     return BIC
 
 
-def xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8):
+def _compute_xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8, **kwargs):
     """
     Compute cluster assignments using X-means clustering
     
@@ -70,7 +70,14 @@ def xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8):
     # set of indices that we already know don't improve with splitting
     stop_checking = set()
     # run the initial round of k-means
-    I, centroids = _kmeans(X, init_k)
+    I, centroids = _kmeans(X, init_k, **kwargs)
+    
+    # Guardrail: if the initial kmeans produces any clusters with 0 or
+    #  members, the next step will fail
+    for i in range(init_k):
+        if (I == i).sum() < 2:
+            stop_checking.add(i)
+    
     # iterate over clusters, splitting if the BIC improves, up to
     # max_depth times
     for m in range(max_depth):
@@ -78,14 +85,15 @@ def xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8):
     
         keep_going = False
         I_old = I.copy()
+        # for each cluster
         for i in set(I_old)-stop_checking:
 
             X_subset = X[I_old==i,:]
             I_subset = I_old[I_old==i]
-
+            
             initial_BIC = _compute_BIC(X_subset, centroids, I_subset, aic=aic)
 
-            I_next, centroids_next = _kmeans(X_subset,2)
+            I_next, centroids_next = _kmeans(X_subset,2, **kwargs)
             # how big is the smallest new cluster?
             smallest_cluster = np.min([(I_next == i).sum() for i in range(2)])
             # compute BIC for split clusters
@@ -93,6 +101,7 @@ def xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8):
 
             # keep split if BIC went up AND none of the clusters are too small
             if (initial_BIC < split_BIC)&(smallest_cluster >= min_size):
+                print(f"smallest cluster: {smallest_cluster} compare {min_size}")
                 logging.debug(f"xmeans splitting cluster{i}")
                 keep_going = True
                 I[I_old==i] += I_next*(I.max()+1-i)
@@ -105,5 +114,6 @@ def xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8):
         if not keep_going:
             logging.debug(f"no clusters split; interrupting xmeans at depth {m}")
             break
-            
+    num_clusters = I.max()+1
+    logging.debug(f"xmeans completed with {num_clusters} clusters found")
     return I
