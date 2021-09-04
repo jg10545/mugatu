@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging
 import operator
+import re
 from collections import defaultdict
+import sklearn.feature_extraction
 
 try:
     import RAKE.RAKE
@@ -56,3 +58,30 @@ def fasterrake(text, max_words=5, min_characters=1, min_frequency=1, stopwords=N
     sorted_keywords = sorted(keyword_candidates.items(), key=operator.itemgetter(1),
                              reverse=True)
     return sorted_keywords
+
+
+def build_rake_tdm(corpus, max_words=5, min_characters=1, min_frequency=1, stopwords=None):
+    """
+    
+    """
+    # compile the regex sklearn uses for tokenization
+    sklearn_pattern = re.compile('(?u)\\b\\w\\w+\\b')
+    # and the reged RAKE uses for word separation
+    splitter = re.compile('(?u)\W+') # from RAKE.RAKE.separate_words
+    # this substitute function will strip out hyphens and stuff and replace with
+    # a space. so RAKE won't map "big time" and "big-time" to separate keywords.
+    corpus = [re.sub(splitter, " ", c) for c in corpus]
+    # run RAKE on the entire corpus
+    keywords = fasterrake("\n".join(corpus), max_words=max_words, 
+                           min_characters=min_characters, min_frequency=min_frequency, 
+                           stopwords=stopwords)
+    # strip out keywords sklearn won't recognize or ones that have a carriage
+    # return in them for some reason
+    keyword_vocab = [k[0] for k in keywords if 
+                     bool(re.match(sklearn_pattern, k[0]))&("\n" not in k[0])]
+    # vectorize the corpus to a sparse document-keyword matrix scaled with
+    # TF-IDF.
+    vec = sklearn.feature_extraction.text.TfidfVectorizer(vocabulary=keyword_vocab,
+                                                          ngram_range=(1, max_words))
+    tdm = vec.fit_transform(corpus)
+    return keyword_vocab, tdm                              

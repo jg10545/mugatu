@@ -17,6 +17,7 @@ import mlflow
 from mugatu._util import _lens_dict
 from mugatu._mapper import build_mapper_graph
 from mugatu._viz import mapper_fig, _build_node_dataset
+from mugatu._metrics import _compute_node_measure_concentrations
 
 def _build_widgets(colnames, lenses, title=""):
     """
@@ -152,7 +153,7 @@ class Mapperator(object):
     """
     
     def __init__(self, df, lens_data=None, compute=["svd", "isolation_forest", "l2"],
-                 color_data=None, title="", mlflow_uri=None):
+                 color_data=None, title="", mlflow_uri=None, sparse_data=None):
         """
         :df: pandas DataFrame raw data to cluster on. The dataframe index
             will be used to relate nodes on the Mapper graph back to data
@@ -173,6 +174,7 @@ class Mapperator(object):
         """
         # store data and precompute lenses
         self.df = df
+        self._sparse_data = sparse_data
         # if lens_data or color_data are dataframes- turn them
         # into dictionaries
         if isinstance(lens_data, pd.DataFrame):
@@ -232,7 +234,8 @@ class Mapperator(object):
                                         balance = p["balance"],
                                         pca_dim = p["pca_dim"],
                                         min_samples=p["min_samples"],
-                                        k=k, xmeans=xmeans, aic=aic)
+                                        k=k, xmeans=xmeans, aic=aic,
+                                        sparse_data=self._sparse_data)
         self._cluster_indices = cluster_indices
         self._g = g
         
@@ -297,10 +300,6 @@ class Mapperator(object):
         
     def _update_filename(self):
         p = self._params
-        #if p["k"] > 0:
-        #    alg = "kmeans"
-        #else:
-        #    alg = "OPTICS"
         alg = p["cluster_select"].replace(" ","_").replace("(","").replace(")","")
             
         if p["lens2"] is None:
@@ -311,7 +310,7 @@ class Mapperator(object):
         filename = f"mugatu_{alg}_{lens}.html"
         self._widgets["sav_button"].filename = filename
         
-    def _mlflow_callback(self, *events):
+    def _mlflow_callback(self, record_fig=True, *events):
         """
         
         """
@@ -320,15 +319,25 @@ class Mapperator(object):
             p = self._params
             params = {k:p[k] for k in p if k not in ["include"]}
 
-            # get holoviews html file as a BytesIO object
-            bio = self._widgets["sav_button"].callback()
-            # write to file
-            with open("figure.html", "wb") as f:
-                f.write(bio.read())
-    
+            # save out the figure so we can include it as an artifact
+            if record_fig:
+                # get holoviews html file as a BytesIO object
+                bio = self._widgets["sav_button"].callback()
+                # write to file
+                with open("figure.html", "wb") as f:
+                    f.write(bio.read())
+                    
+            # compute concentration values for graph colorings
+            if self.color_data is not None:
+                coldict = {c:self._node_df[c].values for c in self.color_data}
+                concentrations = _compute_node_measure_concentrations(coldict, self._g)
+                
             with mlflow.start_run():
                 mlflow.log_params(params)
-                mlflow.log_artifact("figure.html")
+                if record_fig:
+                    mlflow.log_artifact("figure.html")
+                if self.color_data is not None:
+                    mlflow.log_metrics(concentrations)
         
         
     def build_mapper_model(self, *events):
