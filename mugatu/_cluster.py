@@ -84,8 +84,9 @@ def reduce_and_cluster_optics(X, index, pca_dim=4, min_samples=5, sparse_data=No
     :min_samples: min_samples parameter for OPTICS
     """
     N = X.shape[0]
-    if sparse_data is not None:
-        X = np.concatenate([X, sparse_data.toarray()], 1)
+    if (sparse_data is not None)&(N > 0):
+        densified = sklearn.decomposition.TruncatedSVD(pca_dim).fit_transform(sparse_data)
+        X = np.concatenate([X, densified], 1)
     # in case the lens generates an empty segment
     if N == 0:
         return []

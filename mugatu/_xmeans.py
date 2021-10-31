@@ -101,7 +101,7 @@ def _compute_xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8, **kwargs):
 
             # keep split if BIC went up AND none of the clusters are too small
             if (initial_BIC < split_BIC)&(smallest_cluster >= min_size):
-                print(f"smallest cluster: {smallest_cluster} compare {min_size}")
+                logging.debug(f"smallest cluster: {smallest_cluster} compare {min_size}")
                 logging.debug(f"xmeans splitting cluster{i}")
                 keep_going = True
                 I[I_old==i] += I_next*(I.max()+1-i)

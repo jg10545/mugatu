@@ -37,8 +37,8 @@ def _build_widgets(colnames, lenses, title=""):
     cluster_select = pn.widgets.Select(name="Clustering method", 
                                        options=["k-means", "x-means (AIC)", 
                                                 "x-means (BIC)", "OPTICS"],
-                                       value="k-means")
-    k = pn.widgets.IntInput(name="k (k-means and x-means only)", value=5)
+                                       value="x-means (BIC)")
+    k = pn.widgets.IntInput(name="k (k-means and x-means only)", value=2)
     min_samples = pn.widgets.IntInput(name="Minimum cluster size (OPTICS and x-means only)",
                                       value=5)
     num_intervals = pn.widgets.IntInput(name="Number of intervals", value=5)

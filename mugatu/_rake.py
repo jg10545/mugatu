@@ -60,7 +60,8 @@ def fasterrake(text, max_words=5, min_characters=1, min_frequency=1, stopwords=N
     return sorted_keywords
 
 
-def build_rake_tdm(corpus, max_words=5, min_characters=1, min_frequency=1, stopwords=None):
+def build_rake_tdm(corpus, max_words=5, min_characters=1, min_frequency=1, 
+                   stopwords=None, remove_urls=True):
     """
     
     """
@@ -79,6 +80,8 @@ def build_rake_tdm(corpus, max_words=5, min_characters=1, min_frequency=1, stopw
     # return in them for some reason
     keyword_vocab = [k[0] for k in keywords if 
                      bool(re.match(sklearn_pattern, k[0]))&("\n" not in k[0])]
+    if remove_urls:
+        keyword_vocab = [k for k in keyword_vocab if "http" not in k]
     # vectorize the corpus to a sparse document-keyword matrix scaled with
     # TF-IDF.
     vec = sklearn.feature_extraction.text.TfidfVectorizer(vocabulary=keyword_vocab,
