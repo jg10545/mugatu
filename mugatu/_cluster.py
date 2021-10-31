@@ -34,9 +34,10 @@ def reduce_and_cluster(X, index, pca_dim=4, k=5, min_points_per_cluster=1,
     :kwargs: keyword arguments to pass to faiss.Kmeans()
     """
     N = X.shape[0]
-    if (sparse_data is not None)&(N > 0):
-        densified = sklearn.decomposition.TruncatedSVD(pca_dim).fit_transform(sparse_data)
-        X = np.concatenate([X, densified], 1)
+    d = X.shape[1]
+    #if (sparse_data is not None)&(N > 0):
+    #    densified = sklearn.decomposition.TruncatedSVD(pca_dim).fit_transform(sparse_data)
+    #    X = np.concatenate([X, densified], 1)
     
     # in case the lens generates an empty segment
     if N == 0:
@@ -55,9 +56,15 @@ def reduce_and_cluster(X, index, pca_dim=4, k=5, min_points_per_cluster=1,
     if pca_dim:
         # only reduce dimension if we have enough data points
         if N > pca_dim:
-            mat = faiss.PCAMatrix(X.shape[1], pca_dim)
-            mat.train(X)
-            X = mat.apply_py(X)
+            # only apply PCA to dense data matrix if pca_dim is lower than data dim
+            if pca_dim < d:
+                mat = faiss.PCAMatrix(X.shape[1], pca_dim)
+                mat.train(X)
+                X = mat.apply_py(X)
+            # if there's a sparse matrix, reduce that with SVD and concatenate
+            if sparse_data is not None:
+                densified = sklearn.decomposition.TruncatedSVD(pca_dim).fit_transform(sparse_data)
+                X = np.concatenate([X, densified], 1).astype(np.float32)
             
     # Cluster and get indices. 
     if xmeans:
