@@ -10,11 +10,10 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 import sklearn.decomposition
 import sklearn.cluster
-import faiss
 import dask
 import logging
 
-from mugatu._xmeans import _compute_xmeans
+from mugatu._xmeans import _compute_xmeans, _compute_kmeans, _pca_reduce
 
 def reduce_and_cluster(X, index, pca_dim=4, k=5, min_points_per_cluster=1, 
                        xmeans=False, aic=False, sparse_data=None,
@@ -53,21 +52,14 @@ def reduce_and_cluster(X, index, pca_dim=4, k=5, min_points_per_cluster=1,
     X = StandardScaler().fit_transform(X).astype(np.float32)
     # if using PCA, reduce dimension
     if pca_dim:
-        # only reduce dimension if we have enough data points
-        if N > pca_dim:
-            mat = faiss.PCAMatrix(X.shape[1], pca_dim)
-            mat.train(X)
-            X = mat.apply_py(X)
+        X = _pca_reduce(X, pca_dim)
             
     # Cluster and get indices. 
     if xmeans:
         I = _compute_xmeans(X, aic=aic, init_k=k, 
                             min_size=min_points_per_cluster, **kwargs)
     else:
-        kmeans = faiss.Kmeans(X.shape[1] ,k, **kwargs)
-        kmeans.train(X)
-        D, I = kmeans.index.search(X, 1)
-        I = I.ravel()
+        I, _ = _compute_kmeans(X, k, **kwargs)
     indices = [index[I == i] for i in range(I.max()+1)]
     # filter out empty clusters
     indices = [i for i in indices if len(i) > 0]
@@ -99,11 +91,7 @@ def reduce_and_cluster_optics(X, index, pca_dim=4, min_samples=5, sparse_data=No
     X = StandardScaler().fit_transform(X).astype(np.float32)
     # if using PCA, reduce dimension
     if pca_dim:
-        # only reduce dimension if we have enough data points
-        if N > pca_dim:
-            mat = faiss.PCAMatrix(X.shape[1], pca_dim)
-            mat.train(X)
-            X = mat.apply_py(X)
+        X = _pca_reduce(X, pca_dim)
             
     # Cluster and get indices. 
     I = sklearn.cluster.OPTICS(min_samples=min_samples).fit_predict(X)

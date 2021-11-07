@@ -7,7 +7,7 @@ Created on Fri Jul 16 13:41:49 2021
 """
 import numpy as np
 
-from mugatu._xmeans import _kmeans, _compute_BIC, _compute_xmeans
+from mugatu._xmeans import _compute_kmeans, _compute_BIC, _compute_xmeans
 
 
 
@@ -26,7 +26,7 @@ X[500:750,1] += 4
 
 def test_kmeans():
     k = 3
-    I, centroids = _kmeans(X, k)
+    I, centroids = _compute_kmeans(X, k)
     
     assert len(I) == X.shape[0]
     assert centroids.shape == (k, X.shape[1])
@@ -35,7 +35,7 @@ def test_kmeans():
     
 def test_bic():
     k = 3
-    I, centroids = _kmeans(X, k)
+    I, centroids = _compute_kmeans(X, k)
     # compute BIC for the kmeans model
     BIC_kmeans = _compute_BIC(X, centroids, I, False)
     # and let's compare to scrambled centroids
@@ -45,7 +45,7 @@ def test_bic():
     
 def test_aic():
     k = 3
-    I, centroids = _kmeans(X, k)
+    I, centroids = _compute_kmeans(X, k)
     # compute BIC for the kmeans model
     AIC_kmeans = _compute_BIC(X, centroids, I, True)
     # and let's compare to scrambled centroids

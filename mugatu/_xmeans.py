@@ -6,21 +6,54 @@ Created on Fri Jul 16 13:41:36 2021
 @author: joe
 """
 import numpy as np 
-import faiss
 import logging
 
 
-def _kmeans(X,k, **kwargs):
-    """
-    Wrapper for faiss' kmeans tool. Returns indices
-    assigned to each cluster and a matrix of
-    cluster centroids
-    """
-    kmeans = faiss.Kmeans(X.shape[1] ,k, **kwargs)
-    kmeans.train(X)
-    D, I = kmeans.index.search(X, 1)
-    I = I.ravel()
-    return I, kmeans.centroids
+"""
+Currently having trouble getting Faiss running on my M1 Macbook. Let's add
+an sklearn-based function as a backstop
+"""
+try:
+    import faiss
+    def _compute_kmeans(X,k, **kwargs):
+        """
+        Wrapper for faiss' kmeans tool. Returns indices
+        assigned to each cluster and a (k, d) matrix of
+        cluster centroids
+        """
+        kmeans = faiss.Kmeans(X.shape[1] ,k, **kwargs)
+        kmeans.train(X)
+        D, I = kmeans.index.search(X, 1)
+        I = I.ravel()
+        return I, kmeans.centroids
+    
+    def _pca_reduce(X, pca_dim):
+        N, d = X.shape
+        # only reduce dimension if we have enough data of
+        # high enough dimension
+        if (d <= pca_dim)|(N <= pca_dim):
+            return X
+        else:
+            mat = faiss.PCAMatrix(d, pca_dim)
+            mat.train(X)
+            return mat.apply_py(X)
+except:
+    logging.warn("unable to import faiss; using sklearn instead")
+    import sklearn.cluster, sklearn.decomposition
+    
+    def _compute_kmeans(X,k, **kwargs):
+        clus = sklearn.cluster.KMeans(k)
+        clus = clus.fit(X)
+        return clus.predict(X), clus.cluster_centers_
+    
+    def _pca_reduce(X, pca_dim):
+        N, d = X.shape
+        # only reduce dimension if we have enough data of
+        # high enough dimension
+        if (d <= pca_dim)|(N <= pca_dim):
+            return X
+        else:
+            return sklearn.decomposition.PCA(pca_dim).fit_transform(X)
 
 
 
@@ -70,7 +103,7 @@ def _compute_xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8, **kwargs):
     # set of indices that we already know don't improve with splitting
     stop_checking = set()
     # run the initial round of k-means
-    I, centroids = _kmeans(X, init_k, **kwargs)
+    I, centroids = _compute_kmeans(X, init_k, **kwargs)
     
     # Guardrail: if the initial kmeans produces any clusters with 0 or
     #  members, the next step will fail
@@ -93,7 +126,7 @@ def _compute_xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8, **kwargs):
             
             initial_BIC = _compute_BIC(X_subset, centroids, I_subset, aic=aic)
 
-            I_next, centroids_next = _kmeans(X_subset,2, **kwargs)
+            I_next, centroids_next = _compute_kmeans(X_subset,2, **kwargs)
             # how big is the smallest new cluster?
             smallest_cluster = np.min([(I_next == i).sum() for i in range(2)])
             # compute BIC for split clusters

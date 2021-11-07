@@ -27,7 +27,6 @@ def test_build_mapper_graph_one_lens():
     assert isinstance(clust_ind, list)
     assert isinstance(g, nx.Graph)
     assert len(g.nodes) >= num_intervals
-    #assert len(g.nodes) == num_intervals * k
 
 def test_build_mapper_graph_two_lenses():
     N = 100

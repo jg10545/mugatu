@@ -5,6 +5,7 @@ Created on Thu Jul 29 20:40:27 2021
 
 @author: joe
 """
+import numpy as np
 import pandas as pd
 import sklearn.feature_extraction
 import panel as pn
@@ -86,7 +87,7 @@ def find_high_tfidf_keywords(df, keywords, tdm, cluster_indices, num_tokens=10):
     return token_list
 
 
-class TextMapperator(mugatu._gui.Mapperator):
+class TextMapperator(Mapperator):
     """
     """
     

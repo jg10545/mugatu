@@ -12,6 +12,9 @@ from mugatu._gui import _build_widgets, Mapperator
 
 hv.extension("bokeh")
 
+import dask
+dask.config.set(scheduler="processes")
+
 def test_build_widgets():
     # just make sure it runs i guess?
     colnames = ["foo", "bar"]
