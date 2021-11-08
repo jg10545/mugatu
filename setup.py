@@ -19,7 +19,8 @@ requirements = ["numpy",
                 "holoviews",
                 "dask",
                 "panel",
-                "mlflow"
+                "mlflow",
+                "python-rake",
                 ]
 
 setup_requirements = ['pytest-runner', ]
