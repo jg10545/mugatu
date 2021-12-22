@@ -61,14 +61,14 @@ def fasterrake(text, max_words=5, min_characters=1, min_frequency=1, stopwords=N
 
 
 def build_rake_tdm(corpus, max_words=5, min_characters=1, min_frequency=1, 
-                   stopwords=None, remove_urls=True):
+                   stopwords=None, remove_urls=True, tfidf=True):
     """
     
     """
     # compile the regex sklearn uses for tokenization
     sklearn_pattern = re.compile('(?u)\\b\\w\\w+\\b')
     # and the reged RAKE uses for word separation
-    splitter = re.compile('(?u)\W+') # from RAKE.RAKE.separate_words
+    splitter = re.compile('(?u)\\W+') # from RAKE.RAKE.separate_words
     # this substitute function will strip out hyphens and stuff and replace with
     # a space. so RAKE won't map "big time" and "big-time" to separate keywords.
     corpus = [re.sub(splitter, " ", c) for c in corpus]
@@ -84,7 +84,12 @@ def build_rake_tdm(corpus, max_words=5, min_characters=1, min_frequency=1,
         keyword_vocab = [k for k in keyword_vocab if "http" not in k]
     # vectorize the corpus to a sparse document-keyword matrix scaled with
     # TF-IDF.
-    vec = sklearn.feature_extraction.text.TfidfVectorizer(vocabulary=keyword_vocab,
+    if tfidf:
+        vec = sklearn.feature_extraction.text.TfidfVectorizer(vocabulary=keyword_vocab,
+                                                          ngram_range=(1, max_words))
+    else:
+        
+        vec = sklearn.feature_extraction.text.CountVectorizer(vocabulary=keyword_vocab,
                                                           ngram_range=(1, max_words))
     tdm = vec.fit_transform(corpus)
     return keyword_vocab, tdm                              

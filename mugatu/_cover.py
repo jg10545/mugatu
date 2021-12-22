@@ -5,6 +5,7 @@ Created on Sun May 30 11:52:23 2021
 
 @author: joe
 """
+import numpy as np
 import pandas as pd
 
 def _find_start_and_delta(minval, maxval, num_intervals, f):
@@ -50,19 +51,21 @@ def _compute_1D_cover_indices(index, lens, num_intervals, f, balance=False):
     return indices
 
 
-def compute_cover_indices(index, lens1, lens2=None, num_intervals=5, f=0.1, balance=False):
+def compute_cover_indices(lens1, lens2=None, num_intervals=5, f=0.1, balance=False):
     """
     Build a covering of a dataset as a list of arrays, where each array can be used to index
     the original dataframe to recover the subset corresponding to an element of the index set
     
-    :index: (N,) array of data indices
     :lens1: (N,) array representing first lens
     :lens2: optional; (N,) array representing second lens
     :num_intervals: int; number of pieces to break the dataset into
     :f: float; overlap fraction between pieces
     :balance: bool; if False slice lens into equally-sized pieces; if True slice lens into
         equally-occupied pieces
+        
+    Returns a cover using indices of the data matrix, not the user-passed index array!!
     """
+    index = np.arange(len(lens1))
     indices_1D = _compute_1D_cover_indices(index, lens1, num_intervals, f, balance)
     if lens2 is None:
         return indices_1D

@@ -10,7 +10,7 @@ import mugatu._cluster
 import mugatu._graph
 
 
-def build_mapper_graph(df, lens, lens2=None, num_intervals=5, f=0.1, balance=False,
+def build_mapper_graph(X, lens, lens2=None, num_intervals=5, f=0.1, balance=False,
                        pca_dim=4, k=None, min_samples=5, xmeans=False, aic=False, 
                        sparse_data=None, **kwargs):
     """
@@ -35,11 +35,13 @@ def build_mapper_graph(df, lens, lens2=None, num_intervals=5, f=0.1, balance=Fal
     :cluster_indices: a list containing the raw-data indices associated with each cluster
     :g: NetworkX Graph object containing the Mapper graph
     """
-    cover = mugatu._cover.compute_cover_indices(df.index.values, lens,
-                                                lens2=lens2, num_intervals=num_intervals, 
+    cover = mugatu._cover.compute_cover_indices(lens,lens2=lens2, 
+                                                num_intervals=num_intervals, 
                                                 f=f, balance=balance)
     
-    cluster_indices = mugatu._cluster.compute_clusters(df, cover, pca_dim=pca_dim, 
+    print([len(c) for c in cover])
+    
+    cluster_indices = mugatu._cluster.compute_clusters(X, cover, pca_dim=pca_dim, 
                                                        min_samples=min_samples, k=k,
                                                        xmeans=xmeans, aic=aic,
                                                        sparse_data=sparse_data,

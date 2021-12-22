@@ -8,8 +8,10 @@ Created on Sun May 30 13:52:46 2021
 import numpy as np
 import pandas as pd
 import pytest
+import scipy.sparse
 
 from mugatu._cluster import reduce_and_cluster, compute_clusters, reduce_and_cluster_optics
+from mugatu._cluster import sparse_corr
 
 def test_reduce_and_cluster():
     N = 1000
@@ -113,4 +115,15 @@ def test_compute_clusters_conflicting_kwargs():
     with pytest.raises(UnboundLocalError):
         indices = compute_clusters(df, cover, pca_dim=False,
                                    k=0, min_samples=None)
+    
+    
+def test_sparse_corr():
+    r = 100
+    c = 1000
+    a = scipy.sparse.rand(r, c, density=0.01, format='csr')
+    
+    coeffs1 = sparse_corr(a.T)
+    coeffs2 = np.corrcoef(a.todense())
+    assert coeffs1.shape == (r,r)
+    assert np.allclose(coeffs1, coeffs2)
     

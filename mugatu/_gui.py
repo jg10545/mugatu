@@ -152,12 +152,13 @@ class Mapperator(object):
     Class for interactive modeling with Mapper
     """
     
-    def __init__(self, df, lens_data=None, compute=["svd", "isolation_forest", "l2"],
-                 color_data=None, title="", mlflow_uri=None, sparse_data=None):
+    def __init__(self, X=None, columns=None, rows=None, df=None, lens_data=None, compute=["svd", "isolation_forest", "l2"],
+                 color_data=None, title="", mlflow_uri=None, maxdim=25):
         """
-        :df: pandas DataFrame raw data to cluster on. The dataframe index
-            will be used to relate nodes on the Mapper graph back to data
-            points.
+        :X: array or scipy CSR sparse matrix of data
+        :columns: list of strings; label for each column in X
+        :rows: list of strings; label for each row in X
+        :df: pandas DataFrame of raw data; X, colums, and rows will be derived from this
         :lens_data: pandas DataFrame (or dictionary of arrays); additional lenses that can be used
             to filter your data
         :compute: listof strings; generic lenses to precompute. can include:
@@ -172,9 +173,20 @@ class Mapperator(object):
         :title: string; title for the figure
         :mlflow_uri: string; location of MLflow server for logging results
         """
+        if df is not None:
+            X = df.values
+            columns = list(df.columns)
+            rows = df.index.values
+        if rows is None:
+            rows = np.arange(X.shape[0])
+        if columns is None:
+            columns = np.arange(X.shape[1])
         # store data and precompute lenses
-        self.df = df
-        self._sparse_data = sparse_data
+        self._X = X
+        self._columns = columns
+        self._rows = rows
+        #self.df = df
+        #self._sparse_data = sparse_data
         # if lens_data or color_data are dataframes- turn them
         # into dictionaries
         if isinstance(lens_data, pd.DataFrame):
@@ -193,25 +205,28 @@ class Mapperator(object):
             self._color_names += list(color_data.keys())
         self._node_df = None
         self._title = title
-        include = df.columns.to_list()
-        self._old_variables_to_include = include
+        include = columns
         self._compute = compute
-        self.lens_dict = _compute_lenses(df, include, lens_data, compute=compute)
+        self._maxdim = maxdim
+        #self.lens_dict = _compute_lenses(df, include, lens_data, compute=compute)
+        self._update_lens()
         self.mlflow_uri = mlflow_uri
         if mlflow_uri is not None:
             mlflow.set_tracking_uri(mlflow_uri)
         # set up gui
-        self._widgets = _build_widgets(list(df.columns), list(self.lens_dict.keys()),
+        self._widgets = _build_widgets(list(columns), list(self.lens_dict.keys()),
                                        title)
         self._widgets["go_button"].on_click(self.build_mapper_model)
         self._widgets["log_button"].on_click(self._mlflow_callback)
         
     def _update_lens(self):
-        p = self._params
-        self.lens_dict = _compute_lenses(self.df, p["include"], self.lens_data,
-                                          self._old_variables_to_include, self.lens_dict,
-                                          compute=self._compute)
-        self._old_variables_to_include = p["include"]
+        #p = self._params
+        self.lens_dict = _lens_dict(self._X, self.lens_data, compute=self._compute,
+                                    maxdim=self._maxdim)
+        #self.lens_dict = _compute_lenses(self.df, p["include"], self.lens_data,
+        #                                  self._old_variables_to_include, self.lens_dict,
+        #                                  compute=self._compute)
+        #self._old_variables_to_include = p["include"]
         
     def _build_mapper_graph(self):
         p = self._params
@@ -228,14 +243,13 @@ class Mapperator(object):
         if c == "OPTICS":
             k = 0
 
-        cluster_indices, g = build_mapper_graph(self.df, lens, lens2, 
+        cluster_indices, g = build_mapper_graph(self._X, lens, lens2, 
                                         num_intervals = p["num_intervals"],
                                         f = p["overlap_frac"], 
                                         balance = p["balance"],
                                         pca_dim = p["pca_dim"],
                                         min_samples=p["min_samples"],
-                                        k=k, xmeans=xmeans, aic=aic,
-                                        sparse_data=self._sparse_data)
+                                        k=k, xmeans=xmeans, aic=aic)
         self._cluster_indices = cluster_indices
         self._g = g
         
@@ -245,7 +259,7 @@ class Mapperator(object):
         # automatically add all of them as coloring options.
         exog = _combine_dictionaries(self.lens_dict, self.color_data)
         p = self._params
-        self._node_df = _build_node_dataset(self.df, 
+        self._node_df = _build_node_dataset(self._X, self._columns, self._rows, 
                                             self._cluster_indices, 
                                             lenses=exog, 
                                             include_indices=p["include_indices"])
@@ -351,7 +365,7 @@ class Mapperator(object):
         self._update_filename()
         # update lenses if necessary
         logging.info("updating lenses")
-        self._update_lens()
+        #self._update_lens()
         self._widgets["progress"].value = 20
         
         # build mapper graph

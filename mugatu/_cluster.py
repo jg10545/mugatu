@@ -12,6 +12,7 @@ import sklearn.decomposition
 import sklearn.cluster
 import dask
 import logging
+import scipy.cluster, scipy.sparse, scipy.spatial.distance
 
 from mugatu._xmeans import _compute_xmeans, _compute_kmeans, _pca_reduce
 
@@ -127,7 +128,78 @@ def reduce_and_cluster_optics(X, index, pca_dim=4, min_samples=5, sparse_data=No
 
 
 
-def compute_clusters(df, cover, pca_dim=4, min_samples=5, k=None, 
+
+
+
+def sparse_corr(A):
+    N = A.shape[0]
+    C=((A.T*A -(sum(A).T*sum(A)/N))/(N-1)).todense()
+    V=np.sqrt(np.mat(np.diag(C)).T*np.mat(np.diag(C)))
+    COR = np.divide(C,V+1e-119)
+    return np.array(COR)
+
+
+
+def cluster_hierarchical(X, index, dist_thresh=1.):
+    """
+    Compute pearson distances for sparse matrix X and run single-linkage
+    hierarchical clustering.
+    
+    :X: (N,d) scipy csr matrix of raw data
+    :index: (N,) array of indices used to identify data in original dataframe
+    :dist_thresh: pearson distance threshold for clustering cutoff
+    """
+    print("starting clustering")
+    print(X.shape[0])
+    if X.shape[0] == 0:
+        print("why is this empty??")
+        return []
+    elif X.shape[0] == 1:
+        return [index]
+    # compute pearson distances
+    if isinstance(X, scipy.sparse.csr.csr_matrix):
+        print("sparse version")
+        pearson_dists = 1-sparse_corr(X.T)
+    else:
+        print("dense version")
+        pearson_dists = 1-np.corrcoef(X)
+    # convert redundant distance matrix to reduced form
+    try:
+        pearson_dists = scipy.spatial.distance.squareform(pearson_dists)
+    except:
+        print([pearson_dists[i,i] for i in range(pearson_dists.shape[0])])
+        assert False
+        
+    #dist_thresh = np.median(pearson_dists)
+    quantile = 0.01
+    N = X.shape[0]
+    M = N**2
+    # np.quantile returns the value of the first quantile*M values. but the
+    # N lowest values should be zero (diagonal of the distance matrix) so
+    # we really want the (quantile*(M-N) + N)th value.
+    adjusted_quantile = (quantile*(M-N) + N)/M
+    print("adjusted quantile:", adjusted_quantile)
+    dist_thresh = np.quantile(pearson_dists, adjusted_quantile)
+    #rms = np.sqrt(X.multiply(X).mean() - X.mean()**2)
+    #distance_threshold = rms
+    #distance_threshold = pearson_dists.sum()/(M-N)
+    print("distance threshold:", dist_thresh)
+    print("minimum distance:", pearson_dists.min())
+    # cluster
+    linkage = scipy.cluster.hierarchy.single(pearson_dists)
+    clusters = scipy.cluster.hierarchy.fcluster(linkage, dist_thresh, criterion="distance")
+    # find indices associated with each cluster
+    cluster_indices = [index[clusters==c] for c in set(clusters)]
+    for c in cluster_indices:
+        if len(c) == 0:
+            print(clusters)
+            assert False
+    print("%s clusters out of %s records"%(len(cluster_indices), X.shape[0]))
+    return cluster_indices
+
+
+
+def compute_clusters(X, cover, pca_dim=4, min_samples=5, k=None, 
                      xmeans=False, aic=False, sparse_data=None, **kwargs):
     """
     Input a dataset and cover, run k-means or OPTICS against every index set in the
@@ -144,37 +216,50 @@ def compute_clusters(df, cover, pca_dim=4, min_samples=5, k=None,
     :aic: if True and xmeans==True, use AIC instead of BIC for x-means clustering
     :kwargs: additional keyword arguments to pass to faiss.Kmeans()
     """
-    if sparse_data is not None:
-        N = len(df)
-        sdf = pd.Series(data=np.arange(N), index=df.index.values)
-        sparse = [sparse_data[sdf[c].values] for c in cover]
-    else:
-        sparse = [None for c in cover]
+    #if sparse_data is not None:
+    #    N = len(df)
+    #    sdf = pd.Series(data=np.arange(N), index=df.index.values)
+    #    sparse = [sparse_data[sdf[c].values] for c in cover]
+    #else:
+    #    sparse = [None for c in cover]
     
     # build a dask delayed task for every filtered region of the data, 
     # so that they can be computed in parallel
     # OPTICS CASE
-    if (min_samples is not None)&((k is None)|(k == 0)):
-        logging.debug("clustering with OPTICS")
-        tasks = [dask.delayed(reduce_and_cluster_optics)(np.ascontiguousarray(df.loc[c,:].values), 
-                                              c, pca_dim=pca_dim, min_samples=min_samples,
-                                              sparse_data=s)
-     for c,s in zip(cover, sparse)]
+    #if (min_samples is not None)&((k is None)|(k == 0)):
+    #    logging.debug("clustering with OPTICS")
+    #    tasks = [dask.delayed(reduce_and_cluster_optics)(np.ascontiguousarray(df.loc[c,:].values), 
+    #                                          c, pca_dim=pca_dim, min_samples=min_samples,
+    #                                          sparse_data=s)
+    #for c in cover:
+    print("building tasks")
+    #tasks = [dask.delayed(cluster_hierarchical)(np.ascontiguousarray(df.loc[c,:].values), 
+    #                                          df.index.values[c]) for c in cover]
+    # ATTENTION: using c instead of index[c] 
+    tasks = [dask.delayed(cluster_hierarchical)(X[c,:], c) for c in cover]
+    #for c,s in zip(cover, sparse)]
     # K-MEANS CASE
-    elif (k is not None)&(k > 0):
-        logging.debug("clustering with k-means")
-        tasks = [dask.delayed(reduce_and_cluster)(np.ascontiguousarray(df.loc[c,:].values), 
-                                              c, pca_dim=pca_dim, k=k,
-                                              min_points_per_cluster=min_samples,
-                                              xmeans=xmeans, aic=aic, 
-                                              sparse_data=s, **kwargs) 
-                 for c,s in zip(cover, sparse)]
-    else:
-        logging.critical("i don't know what to do with these clustering hyperparameters")
-    results = dask.compute(tasks)
-    
+    #elif (k is not None)&(k > 0):
+    #    logging.debug("clustering with k-means")
+    #    tasks = [dask.delayed(reduce_and_cluster)(np.ascontiguousarray(df.loc[c,:].values), 
+    #                                          c, pca_dim=pca_dim, k=k,
+    #                                          min_points_per_cluster=min_samples,
+    #                                          xmeans=xmeans, aic=aic, 
+    #                                          sparse_data=s, **kwargs) 
+    #             for c,s in zip(cover, sparse)]
+    #else:
+    #    logging.critical("i don't know what to do with these clustering hyperparameters")
+    print("computing tasks")
+    results = dask.compute(*tasks)
+    print("done with tasks")
+    print(type(results[0]))
+    print(results[0])
+    #print("doing tasks")
+    #results = [cluster_hierarchical(X[c,:], c) for c in cover]
+    #print("done with tasks- NO DASK")
     output_indices = []
     for r in results:
-        for i in r:
-            output_indices += i
+        output_indices += r
+        #for i in r:
+            #output_indices += i
     return output_indices
