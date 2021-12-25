@@ -247,7 +247,7 @@ class Mapperator(object):
                                         num_intervals = p["num_intervals"],
                                         f = p["overlap_frac"], 
                                         balance = p["balance"],
-                                        pca_dim = p["pca_dim"],
+                                        svd_dim = p["pca_dim"],
                                         min_samples=p["min_samples"],
                                         k=k, xmeans=xmeans, aic=aic)
         self._cluster_indices = cluster_indices

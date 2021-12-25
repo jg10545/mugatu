@@ -52,10 +52,9 @@ def test_compute_cover_indices():
     N = 100
     num_intervals = 5
     f = 0.1
-    i = np.arange(N) + 500
     l = np.random.normal(0,1,N)
     l2 = np.random.normal(0,1,N)
-    indices = compute_cover_indices(i, l, l2, num_intervals, f, False)
+    indices = compute_cover_indices(l, l2, num_intervals, f, False)
     # correct number of intervals
     assert len(indices) == num_intervals**2
     # indices stores as arrays
@@ -67,10 +66,9 @@ def test_compute_cover_indices_balanced():
     N = 100
     num_intervals = 5
     f = 0.1
-    i = np.arange(N)
     l = np.random.normal(0,1,N)
     l2 = np.random.normal(0,1,N)
-    indices = compute_cover_indices(i, l, l2, num_intervals, f, True)
+    indices = compute_cover_indices(l, l2, num_intervals, f, True)
     # correct number of intervals
     assert len(indices) == num_intervals**2
     # indices stores as arrays

@@ -25,29 +25,33 @@ lens2 = data.b.values
 num_intervals = 2
 f = 0.1
 balance = False
-pca_dim = 0
+svd_dim = 0
 min_samples = 5
-clust_ind, g = build_mapper_graph(data, lens, num_intervals=num_intervals, f=f, balance=balance,
-                                     pca_dim=pca_dim, min_samples=min_samples)
+clust_ind, g = build_mapper_graph(data.values, lens, num_intervals=num_intervals, f=f, balance=balance,
+                                     svd_dim=svd_dim, min_samples=min_samples)
 
 def test_build_node_dataset():
-    ds = _build_node_dataset(data, clust_ind, lenses={}, include_indices=True)
+    ds = _build_node_dataset(data.values, data.columns, data.index.values, 
+                             clust_ind, lenses={}, include_indices=True)
     assert isinstance(ds, pd.DataFrame)
     assert len(ds) == len(clust_ind)
     
 def test_build_node_dataset_without_indices():
-    ds = _build_node_dataset(data, clust_ind, lenses={}, include_indices=False)
+    ds = _build_node_dataset(data.values, data.columns, data.index.values, 
+                             clust_ind, lenses={}, include_indices=False)
     assert isinstance(ds, pd.DataFrame)
     assert len(ds) == len(clust_ind)
     
 def test_build_node_dataset_with_lenses():
-    ds = _build_node_dataset(data, clust_ind, lenses={"a":lens, "b":lens2}, include_indices=True)
+    ds = _build_node_dataset(data.values, data.columns, data.index.values, 
+                             clust_ind, lenses={"a":lens, "b":lens2}, include_indices=True)
     assert isinstance(ds, pd.DataFrame)
     assert len(ds) == len(clust_ind)
     
 
 def test_build_holoviews_fig():
-    ds = _build_node_dataset(data, clust_ind, lenses={"lens":data.a.values}, include_indices=True)
+    ds = _build_node_dataset(data.values, data.columns, data.index.values, 
+                             clust_ind, lenses={"lens":data.a.values}, include_indices=True)
     pos = nx.layout.fruchterman_reingold_layout(g, iterations=1)
     fig = _build_holoviews_fig(g, pos, node_df=ds, color="lens",width=800, 
                                height=600, node_size=20, cmap="plasma")
@@ -55,7 +59,8 @@ def test_build_holoviews_fig():
     assert isinstance(fig, hv.Graph)
     
 def test_mapper_fig():
-    ds = _build_node_dataset(data, clust_ind, lenses={"lens":data.a.values, "lens2":data.b.values}, 
+    ds = _build_node_dataset(data.values, data.columns, data.index.values, 
+                             clust_ind, lenses={"lens":data.a.values, "lens2":data.b.values}, 
                              include_indices=True)
     pos = nx.layout.fruchterman_reingold_layout(g, iterations=1)
     fig = mapper_fig(g, pos, node_df=ds, color="lens",width=800, 
@@ -63,7 +68,8 @@ def test_mapper_fig():
     assert isinstance(fig, hv.Graph)
     
 def test_mapper_fig_holomap():
-    ds = _build_node_dataset(data, clust_ind, lenses={"lens":data.a.values, "lens2":data.b.values}, 
+    ds = _build_node_dataset(data.values, data.columns, data.index.values, 
+                             clust_ind, lenses={"lens":data.a.values, "lens2":data.b.values}, 
                              include_indices=True)
     pos = nx.layout.fruchterman_reingold_layout(g, iterations=1)
     fig = mapper_fig(g, pos, node_df=ds, color=["lens", "lens2"],width=800, 
@@ -72,7 +78,8 @@ def test_mapper_fig_holomap():
 
 
 def test_mapper_fig_bad_color_input_raises_error():
-    ds = _build_node_dataset(data, clust_ind, lenses={"lens":data.a.values,
+    ds = _build_node_dataset(data.values, data.columns, data.index.values, 
+                             clust_ind, lenses={"lens":data.a.values,
                                                       "lens2":data.b.values}, 
                              include_indices=True)
     pos = nx.layout.fruchterman_reingold_layout(g, iterations=1)
