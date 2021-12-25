@@ -7,6 +7,7 @@ Created on Mon May 31 21:02:02 2021
 """
 import numpy as np
 import pandas as pd
+import networkx as nx
 import holoviews as hv
 from bokeh.models import HoverTool
 import scipy.sparse
@@ -147,3 +148,34 @@ def mapper_fig(g, positions, node_df=None, color=[], width=800,
     else:
         assert False, "don't know what to do with the argument you passes to `color`"
     
+    
+    
+def _compute_node_positions(node_df, g, lens1, lens2=None):
+    """
+    Heuristics to choose reasonable initialization for Mapper node layouts
+    
+    :node_df: pandas dataframe containing averaged lens values for each node
+    :g: networkx graph object containing mapper graph
+    :lens1: string; name of first lens
+    :lens2: string; name of second lens if using
+    """
+    # 1D lens: use lens and first singular value
+    if (lens2 is None)&(lens1 != "svd_1")&("svd_1" in node_df.columns):
+        pos_priors = {i:(node_df[lens1].values[i], 
+                             node_df["svd_1"].values[i]) for i in
+                      range(len(node_df))}
+    # 2D lens: use the lenses
+    elif lens2 is not None:
+        pos_priors = {i:(node_df[lens1].values[i], 
+                             node_df[lens2].values[i]) for i in
+                      range(len(node_df))}
+    elif ("svd_1" in node_df.columns)&("svd_2" in node_df.columns):
+        pos_priors = {i:(node_df["svd_1"].values[i], 
+                             node_df["svd_2"].values[i]) for i in
+                      range(len(node_df))}
+    else:
+        pos_priors = None
+        
+    k = 0.01/np.sqrt(len(g.nodes))
+    pos = nx.layout.fruchterman_reingold_layout(g, k=k, pos=pos_priors)
+    return pos

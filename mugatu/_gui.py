@@ -16,7 +16,7 @@ import mlflow
 
 from mugatu._util import _lens_dict
 from mugatu._mapper import build_mapper_graph
-from mugatu._viz import mapper_fig, _build_node_dataset
+from mugatu._viz import mapper_fig, _build_node_dataset, _compute_node_positions
 from mugatu._metrics import _compute_node_measure_concentrations
 
 def _build_widgets(colnames, lenses, title=""):
@@ -33,13 +33,13 @@ def _build_widgets(colnames, lenses, title=""):
     lens2 = pn.widgets.Select(name="Lens 2", options=["None"]+lenses)
     go_button = pn.widgets.Button(name="PUNCH IT, CHEWIE", button_type="success")
     progress = pn.indicators.Progress(name='Progress', value=100, width=600, active=False)
-    pca_dim = pn.widgets.IntInput(name="PCA dimension (0 to disable)", value=max(int(len(colnames)/2),2))
+    svd_dim = pn.widgets.IntInput(name="SVD dimension (0 to disable)", value=0)
     cluster_select = pn.widgets.Select(name="Clustering method", 
                                        options=["k-means", "x-means (AIC)", 
-                                                "x-means (BIC)", "OPTICS"],
+                                                "x-means (BIC)"],
                                        value="x-means (BIC)")
-    k = pn.widgets.IntInput(name="k (k-means and x-means only)", value=2)
-    min_samples = pn.widgets.IntInput(name="Minimum cluster size (OPTICS and x-means only)",
+    k = pn.widgets.IntInput(name="k (k-means only)", value=2)
+    min_samples = pn.widgets.IntInput(name="Minimum cluster size (x-means only)",
                                       value=5)
     num_intervals = pn.widgets.IntInput(name="Number of intervals", value=5)
     overlap_frac = pn.widgets.FloatInput(name="Overlap fraction", value=0.25)
@@ -66,7 +66,7 @@ def _build_widgets(colnames, lenses, title=""):
         pn.Row(
             num_intervals,
             overlap_frac,
-            pca_dim
+            svd_dim
         ),
         pn.Row(
             cluster_select,
@@ -105,7 +105,7 @@ def _build_widgets(colnames, lenses, title=""):
            "layout":layout,
            "k":k, 
            "min_samples":min_samples,
-           "pca_dim":pca_dim,
+           "svd_dim":svd_dim,
            "include_indices":include_indices,
            "fig_panel":fig_panel,
            "num_intervals":num_intervals,
@@ -247,7 +247,7 @@ class Mapperator(object):
                                         num_intervals = p["num_intervals"],
                                         f = p["overlap_frac"], 
                                         balance = p["balance"],
-                                        svd_dim = p["pca_dim"],
+                                        svd_dim = p["svd_dim"],
                                         min_samples=p["min_samples"],
                                         k=k, xmeans=xmeans, aic=aic)
         self._cluster_indices = cluster_indices
@@ -273,15 +273,12 @@ class Mapperator(object):
         self._widgets["fig_panel"][1] = fig[1]
         
     def _compute_node_positions(self):
-        # see if we can start the nodes in reasonable positions using the singular 
-        # values of the data
-        if (self._node_df is not None)&("svd_1" in self._node_df.columns):
-            pos_priors = {i:(self._node_df["svd_1"].values[i], 
-                             self._node_df["svd_2"].values[i]) for i in range(len(self._node_df))}
-        else:
-            pos_priors = None
-        k = 0.01/np.sqrt(len(self._g.nodes))
-        self._pos = nx.layout.fruchterman_reingold_layout(self._g, k=k, pos=pos_priors)
+        p = self._params
+        lens = p["lens1"]
+        lens2 = p["lens2"]
+            
+        self._pos = _compute_node_positions(self._node_df, self._g, 
+                                            lens, lens2)
         
     def update_node_positions(self, *events):
         """
@@ -302,7 +299,7 @@ class Mapperator(object):
             "num_intervals":w["num_intervals"].value,
             "overlap_frac":w["overlap_frac"].value, 
             "balance":w["balance"].value,
-            "pca_dim":w["pca_dim"].value,
+            "svd_dim":w["svd_dim"].value,
             "min_samples":w["min_samples"].value,
             "k":w["k"].value,
             "include_indices":w["include_indices"].value,

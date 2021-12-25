@@ -103,7 +103,7 @@ def _compute_xmeans(X, aic=False, init_k=2, min_size=0, max_depth=8, **kwargs):
     # Guardrail: if the initial kmeans produces any clusters with 0 or
     # 1 members, the next step will fail
     for i in range(init_k):
-        if (I == i).sum() < 2:
+        if (I == i).sum() < 2*min_size:
             stop_checking.add(i)
     
     # iterate over clusters, splitting if the BIC improves, up to

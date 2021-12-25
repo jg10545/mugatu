@@ -39,20 +39,28 @@ def reduce_and_cluster(X, index, svd_dim=0, k=2, min_points_per_cluster=1,
     if N == 0:
         return []
     # check to see if we have more than zero points, but fewer than
-    # min_points_per_cluster- return a single cluster
-    elif N < min_points_per_cluster*k:
+    # min_points_per_cluster- return a single cluster 
+    if xmeans:
+        threshold = 2*min_points_per_cluster
+    else:
+        threshold = k*min_points_per_cluster
+    if N < threshold:
         return [index]
     # similarly make adjust k if we don't have enough data
-    elif N < k*min_points_per_cluster:
-        k = N//min_points_per_cluster
+    #elif N < k*min_points_per_cluster:
+    #    k = N//min_points_per_cluster
     
     # if using SVD, reduce dimension
     X = _svd_reduce(X, svd_dim)
     # Cluster and get indices. 
+    # X-MEANS CASE
     if xmeans:
         I = _compute_xmeans(X, aic=aic, init_k=k, 
                             min_size=min_points_per_cluster, **kwargs)
+    # K-MEANS CASE
     else:
+        if N < k*min_points_per_cluster:
+            k = N//min_points_per_cluster
         I, _ = _compute_kmeans(X, k, **kwargs)
     indices = [index[I == i] for i in range(I.max()+1)]
     # filter out empty clusters
