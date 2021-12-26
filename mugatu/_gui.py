@@ -43,7 +43,7 @@ def _build_widgets(colnames, lenses, title=""):
                                       value=5)
     num_intervals = pn.widgets.IntInput(name="Number of intervals", value=5)
     overlap_frac = pn.widgets.FloatInput(name="Overlap fraction", value=0.25)
-    balance = pn.widgets.Checkbox(name="Balance intervals", value=False)
+    balance = pn.widgets.Checkbox(name="Balance cover intervals", value=False)
     include_indices = pn.widgets.Checkbox(name="Include indices in visualization", value=False)
     experiment_name = pn.widgets.TextInput(name="MLflow experiment", value="derelicte")
     log_button = pn.widgets.Button(name="Log to MLflow for all posterity",
