@@ -19,7 +19,7 @@ from mugatu._mapper import build_mapper_graph
 from mugatu._viz import mapper_fig, _build_node_dataset, _compute_node_positions
 from mugatu._metrics import _compute_node_measure_concentrations
 
-def _build_widgets(colnames, lenses, title=""):
+def _build_widgets(lenses, title=""):
     """
     generate all the Panel widgets
     """
@@ -28,7 +28,7 @@ def _build_widgets(colnames, lenses, title=""):
     else:
         filename = "mugatu.html"
     # MODELING WIDGETS
-    cross_selector = pn.widgets.CrossSelector(name='Inputs', value=colnames, options=colnames)
+    #cross_selector = pn.widgets.CrossSelector(name='Inputs', value=colnames, options=colnames)
     lens1 = pn.widgets.Select(name="Lens 1", options=lenses)
     lens2 = pn.widgets.Select(name="Lens 2", options=["None"]+lenses)
     go_button = pn.widgets.Button(name="PUNCH IT, CHEWIE", button_type="success")
@@ -50,14 +50,15 @@ def _build_widgets(colnames, lenses, title=""):
                                    button_type="primary", align="end")
     
     mlflow_layout = pn.Row(experiment_name, log_button)
+    status = pn.pane.Markdown("*waiting*", width=200) 
     model_layout = pn.Column(
     pn.Row(
-        pn.Column(
-            pn.pane.Markdown("### Variables to Include"),
-            cross_selector,
-        ),
-        pn.Column(
-            pn.pane.Markdown("### Lens"),
+        #pn.Column(
+        #    pn.pane.Markdown("### Variables to Include"),
+        #    cross_selector,
+        #),
+        pn.Row(
+            #pn.pane.Markdown("### Lens"),
             lens1, lens2
         ),
     ), 
@@ -78,6 +79,7 @@ def _build_widgets(colnames, lenses, title=""):
             )
     ),
     pn.layout.Divider(),
+    status,
     pn.Row(go_button, progress))
     
     # DISPLAY WIDGETS
@@ -97,7 +99,7 @@ def _build_widgets(colnames, lenses, title=""):
     layout = pn.layout.Tabs(("Modeling", model_layout), 
                             ("Visualization", pn.Column(fig_panel, sav_button,
                                                         mlflow_layout)))
-    return {"cross_selector":cross_selector, 
+    return {#"cross_selector":cross_selector, 
            "lens1":lens1,
            "lens2":lens2,
            "go_button":go_button,
@@ -114,7 +116,8 @@ def _build_widgets(colnames, lenses, title=""):
            "sav_button":sav_button,
            "experiment_name":experiment_name,
            "log_button":log_button,
-           "cluster_select":cluster_select}
+           "cluster_select":cluster_select,
+           "status":status}
 
 
 
@@ -214,7 +217,7 @@ class Mapperator(object):
         if mlflow_uri is not None:
             mlflow.set_tracking_uri(mlflow_uri)
         # set up gui
-        self._widgets = _build_widgets(list(columns), list(self.lens_dict.keys()),
+        self._widgets = _build_widgets(list(self.lens_dict.keys()),
                                        title)
         self._widgets["go_button"].on_click(self.build_mapper_model)
         self._widgets["log_button"].on_click(self._mlflow_callback)
@@ -293,7 +296,7 @@ class Mapperator(object):
         """
         w = self._widgets
         params = {
-            "include":w["cross_selector"].values,
+            #"include":w["cross_selector"].values,
             "lens1":w["lens1"].value,
             "lens2":w["lens2"].value,
             "num_intervals":w["num_intervals"].value,
@@ -328,7 +331,7 @@ class Mapperator(object):
         if self.mlflow_uri is not None:
             mlflow.set_experiment(self._widgets["experiment_name"].value)
             p = self._params
-            params = {k:p[k] for k in p if k not in ["include"]}
+            params = {k:p[k] for k in p}# if k not in ["include"]}
 
             # save out the figure so we can include it as an artifact
             if record_fig:
@@ -350,6 +353,9 @@ class Mapperator(object):
                 if self.color_data is not None:
                     mlflow.log_metrics(concentrations)
         
+    def _message(self, message):
+        self._widgets["status"].object = "*"+message+"*"
+        logging.info(message)
         
     def build_mapper_model(self, *events):
         """
@@ -361,31 +367,32 @@ class Mapperator(object):
         self._collect_params()
         self._update_filename()
         # update lenses if necessary
-        logging.info("updating lenses")
+        self._message("updating lenses")
         #self._update_lens()
         self._widgets["progress"].value = 20
         
         # build mapper graph
-        logging.info("building mapper graph")
+        self._message("building mapper graph")
         self._build_mapper_graph()
         self._widgets["progress"].value = 40
         
         # build node dataframe
-        logging.info("computing node statistics")
+        self._message("computing node statistics")
         self._build_node_df()
         self._widgets["progress"].value = 60
         
         # compute layout for visualization
-        logging.info("computing graph layout")
+        self._message("computing graph layout")
         self._compute_node_positions()
         self._widgets["progress"].value = 80
         
         # build holoviews figure
-        logging.info("building figure")
+        self._message("building figure")
         self._update_fig()
         self._widgets["progress"].value = 100
         # DONE
         self._widgets["progress"].active = False
+        self._message("waiting")
         
     def panel(self):
         """
