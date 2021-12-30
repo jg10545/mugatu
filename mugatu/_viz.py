@@ -18,23 +18,12 @@ def _build_node_dataset(X, columns, rows, cluster_indices, lenses={},
     
     """
     num = min(num, len(columns)-1)
-    # for each node- record the number of constituent data points
-    node_df = pd.DataFrame({
-        "index":np.arange(len(cluster_indices)),
-        "size":[len(c) for c in cluster_indices],
-        })
-    # next- for each node, compute the average value of every covariate.
-    mean_cols = []
-    for d in range(X.shape[1]): #columns:
-        col = X[:,d]
-        if isinstance(col, scipy.sparse.csr_matrix):
-            col = np.array(col.todense())
-        # skip if all values are the same
-        #if df[d].std() > 0:
-        if col.std() > 0:
-            #node_df[f"mean_{d}"] = [np.mean(df.loc[c,d]) for c in cluster_indices]
-            node_df[f"mean_{d}"] = [np.mean(col[c]) for c in cluster_indices] 
-            mean_cols.append(f"mean_{d}")
+    # compute means for each column over each cluster
+    means = np.stack([np.array(X[c].mean(0)).ravel() for c in cluster_indices], 0)
+    mean_cols = [f"mean_{c}" for c in columns]
+    node_df = pd.DataFrame(means, columns=mean_cols)
+    node_df["size"] = [len(c) for c in cluster_indices]
+    node_df["index"] = np.arange(len(cluster_indices))
         
     # the above creates way too much information to be readable in the hover tool.
     # so for each node just find unusually high or low values. compute these by
@@ -43,7 +32,6 @@ def _build_node_dataset(X, columns, rows, cluster_indices, lenses={},
     rel_means = (node_df[mean_cols] - node_df[mean_cols].mean())/node_df[mean_cols].std()
     sorted_means = rel_means.values.argsort(1)
     
-    #cols = [str(c) for c in list(df.columns)]
     cols = [str(c) for c in list(columns)]
     highest = sorted_means[:,-num:][:,::-1]
     node_df["high"] = [", ".join([cols[i] for i in highest[j,:] if 
@@ -53,8 +41,6 @@ def _build_node_dataset(X, columns, rows, cluster_indices, lenses={},
     node_df["low"] = [", ".join([cols[i] for i in lowest[j,:] if
                                 rel_means.values[j,i] < 0]) for j in 
                       range(len(lowest))]
-    
-    #node_df = node_df.drop(mean_cols,1)
     
     if len(lenses) > 0:
         lens_df = pd.DataFrame(lenses, index=np.arange(X.shape[0]))
@@ -67,8 +53,8 @@ def _build_node_dataset(X, columns, rows, cluster_indices, lenses={},
 
         
 
-def _build_holoviews_fig(g, positions, node_df=None, color=[], width=800, 
-                         height=600, node_size=20, cmap="plasma", title="",
+def _build_holoviews_fig(g, positions, node_df=None, color=[], width=900, 
+                         height=700, node_size=20, cmap="plasma", title="",
                          tooltips=None, extra_tooltips=[]):
     """
     

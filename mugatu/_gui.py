@@ -399,5 +399,21 @@ class Mapperator(object):
         Return the panel object for the GUI.
         """
         return self._widgets["layout"]
+    
+    
+    def template(self):
+        """
+        Return app as a panel template. Call template.show() to
+        open interface in new window
+        """
+        vanilla = pn.template.VanillaTemplate(title="mugatu")
 
+        for c in ["lens1", "lens2", "num_intervals", "overlap_frac", "svd_dim",
+                  "cluster_select", "min_samples", "balance", "include_indices", 
+                  "go_button", "progress", "status", "sav_button", 
+                  "experiment_name", "log_button"]:
+            vanilla.sidebar.append(self._widgets[c])
+    
+        vanilla.main.append(self._widgets["fig_panel"])
+        return vanilla
 
