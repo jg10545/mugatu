@@ -17,9 +17,8 @@ dask.config.set(scheduler="processes")
 
 def test_build_widgets():
     # just make sure it runs i guess?
-    colnames = ["foo", "bar"]
     lenses = ["lens_foo", "lens_bar"]
-    widgets = _build_widgets(colnames, lenses)
+    widgets = _build_widgets(lenses)
     assert isinstance(widgets, dict)
     
 N = 100

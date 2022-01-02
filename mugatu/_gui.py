@@ -416,4 +416,10 @@ class Mapperator(object):
     
         vanilla.main.append(self._widgets["fig_panel"])
         return vanilla
+    
+    def show(self):
+        if not hasattr(self, "_template"):
+            self._template = self.template()
+            
+        self._template.show()
 
