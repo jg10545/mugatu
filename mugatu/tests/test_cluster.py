@@ -13,17 +13,31 @@ import scipy.sparse
 from mugatu._cluster import reduce_and_cluster, compute_clusters, reduce_and_cluster_optics
 from mugatu._cluster import sparse_corr
 
-def test_reduce_and_cluster():
+def test_reduce_and_cluster_kmeans():
     N = 1000
     k = 10
     test_data = np.random.normal(0, 1, (N, 20))
     test_index = np.arange(N) + 13
-    indices = reduce_and_cluster(test_data, test_index, 5, k)
+    indices = reduce_and_cluster(test_data, test_index, 5, k, xmeans=False)
     # check data types of index
     assert isinstance(indices, list)
     assert isinstance(indices[0], np.ndarray)
     # check correct number of clusters
     assert len(indices) == k
+    # check that all records accounted for
+    assert np.sum([len(x) for x in indices]) == N
+    
+
+
+def test_reduce_and_cluster_xmeans():
+    N = 1000
+    test_data = np.random.normal(0, 1, (N, 20))
+    test_index = np.arange(N) 
+    indices = reduce_and_cluster(test_data, test_index, 5,  xmeans=True)
+    # check data types of index
+    assert isinstance(indices, list)
+    assert isinstance(indices[0], np.ndarray)
+    # check correct number of clusters
     # check that all records accounted for
     assert np.sum([len(x) for x in indices]) == N
     

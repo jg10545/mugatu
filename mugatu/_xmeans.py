@@ -82,13 +82,12 @@ def _compute_BIC(X, centroids, I, aic=False):
     return BIC
 
 
-def _compute_xmeans(X, aic=False, init_k=2, min_size=0, max_depth=8, **kwargs):
+def _compute_xmeans(X, aic=False, min_size=0, max_depth=8, **kwargs):
     """
     Compute cluster assignments using X-means clustering
     
     :X: (N,d) float32 numpy array containing data
     :aic: if True, use AIC instead of BIC
-    :init_k: initial value of k to use
     :min_size: Guardrail to keep x-means from finding a bunch of teensy
         clusters- set this to a positive value to stop splitting whenever
         a cluster has fewer than this number of records
@@ -97,15 +96,13 @@ def _compute_xmeans(X, aic=False, init_k=2, min_size=0, max_depth=8, **kwargs):
     """
     # set of indices that we already know don't improve with splitting
     stop_checking = set()
-    # run the initial round of k-means
-    I, centroids = _compute_kmeans(X, init_k, **kwargs)
-    
-    # Guardrail: if the initial kmeans produces any clusters with 0 or
-    # 1 members, the next step will fail
-    for i in range(init_k):
-        if (I == i).sum() < 2*min_size:
-            stop_checking.add(i)
-    
+    # initialize with one big cluster
+    I = np.zeros(X.shape[0], dtype=np.int64)
+    if isinstance(X, np.ndarray):
+        centroids = X.mean(0, keepdims=True)
+    else:
+        centroids = np.array(X.mean(0))
+
     # iterate over clusters, splitting if the BIC improves, up to
     # max_depth times
     for m in range(max_depth):
@@ -118,12 +115,11 @@ def _compute_xmeans(X, aic=False, init_k=2, min_size=0, max_depth=8, **kwargs):
 
             X_subset = X[I_old==i,:]
             I_subset = I_old[I_old==i]
-            
             initial_BIC = _compute_BIC(X_subset, centroids, I_subset, aic=aic)
 
             I_next, centroids_next = _compute_kmeans(X_subset,2, **kwargs)
             # how big is the smallest new cluster?
-            smallest_cluster = np.min([(I_next == i).sum() for i in range(2)])
+            smallest_cluster = np.min([(I_next == j).sum() for j in range(2)])
             # if the smallest cluster doesn't disqualify this split, 
             # compute BIC for split clusters
             if smallest_cluster >= min_size:
