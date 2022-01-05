@@ -6,8 +6,9 @@ Created on Fri Jul 16 13:41:49 2021
 @author: joe
 """
 import numpy as np
+import scipy.sparse
 
-from mugatu._xmeans import _kmeans, _compute_BIC, _compute_xmeans
+from mugatu._xmeans import _compute_kmeans, _compute_BIC, _compute_xmeans
 
 
 
@@ -26,7 +27,7 @@ X[500:750,1] += 4
 
 def test_kmeans():
     k = 3
-    I, centroids = _kmeans(X, k)
+    I, centroids = _compute_kmeans(X, k)
     
     assert len(I) == X.shape[0]
     assert centroids.shape == (k, X.shape[1])
@@ -35,7 +36,7 @@ def test_kmeans():
     
 def test_bic():
     k = 3
-    I, centroids = _kmeans(X, k)
+    I, centroids = _compute_kmeans(X, k)
     # compute BIC for the kmeans model
     BIC_kmeans = _compute_BIC(X, centroids, I, False)
     # and let's compare to scrambled centroids
@@ -45,7 +46,7 @@ def test_bic():
     
 def test_aic():
     k = 3
-    I, centroids = _kmeans(X, k)
+    I, centroids = _compute_kmeans(X, k)
     # compute BIC for the kmeans model
     AIC_kmeans = _compute_BIC(X, centroids, I, True)
     # and let's compare to scrambled centroids
@@ -55,14 +56,30 @@ def test_aic():
     
 
 def test_compute_xmeans():
-    init_k = 3
     
     for aic in [True, False]:
         for min_size in [0,100]:
-            I = _compute_xmeans(X, aic=aic, init_k=init_k, min_size=min_size)
+            I = _compute_xmeans(X, aic=aic, min_size=min_size)
     
             assert I.shape == (X.shape[0],)
-            assert I.max() >= init_k
     
             cluster_sizes = [(I == i).sum() for i in set(I)]
             assert np.min(cluster_sizes) >= min_size
+            
+def test_compute_xmeans_sparse():
+    X_sparse = np.concatenate([
+        np.random.normal(0, 1, (25, 100)),
+        np.random.normal(-1, 1, (25, 100)),
+        np.random.normal(1, 1, (25, 100)),
+    ])
+    X_sparse = scipy.sparse.csr_matrix(X_sparse)
+    for aic in [True, False]:
+        for min_size in [2,10]:
+            I = _compute_xmeans(X_sparse, aic=aic, min_size=min_size)
+            # one cluster assignment per input
+            assert I.shape == (X_sparse.shape[0],)
+            cluster_sizes = [(I == i).sum() for i in set(I)]
+            # none of the clusters should be below the minimum size we set
+            assert np.min(cluster_sizes) >= min_size
+            # this dataset was created to have three clear clusters
+            assert len(set(I)) == 3
