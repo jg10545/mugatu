@@ -50,6 +50,7 @@ def _build_widgets(colnames, lenses, title=""):
                                    button_type="primary", align="end")
     
     mlflow_layout = pn.Row(experiment_name, log_button)
+    status = pn.pane.Markdown("*waiting*", width=200) 
     model_layout = pn.Column(
     pn.Row(
         pn.Column(
@@ -114,7 +115,8 @@ def _build_widgets(colnames, lenses, title=""):
            "sav_button":sav_button,
            "experiment_name":experiment_name,
            "log_button":log_button,
-           "cluster_select":cluster_select}
+           "cluster_select":cluster_select,
+           "status":status}
 
 
 
@@ -381,5 +383,27 @@ class Mapperator(object):
         Return the panel object for the GUI.
         """
         return self._widgets["layout"]
+    
+    def template(self):
+        """
+        Return app as a panel template. Call template.show() to
+        open interface in new window
+        """
+        vanilla = pn.template.VanillaTemplate(title="mugatu")
+
+        for c in ["lens1", "lens2", "num_intervals", "overlap_frac", "pca_dim",
+                  "cluster_select", "min_samples", "balance", "include_indices", 
+                  "go_button", "progress", "status", "sav_button", 
+                  "experiment_name", "log_button"]:
+            vanilla.sidebar.append(self._widgets[c])
+    
+        vanilla.main.append(self._widgets["fig_panel"])
+        return vanilla
+    
+    def show(self):
+        if not hasattr(self, "_template"):
+            self._template = self.template()
+            
+        self._template.show()
 
 
