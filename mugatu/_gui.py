@@ -18,7 +18,7 @@ from mugatu._util import _lens_dict
 from mugatu._mapper import build_mapper_graph
 from mugatu._viz import mapper_fig, _build_node_dataset
 from mugatu._metrics import _compute_node_measure_concentrations
-
+ 
 def _build_widgets(colnames, lenses, title=""):
     """
     generate all the Panel widgets
@@ -34,8 +34,8 @@ def _build_widgets(colnames, lenses, title=""):
     go_button = pn.widgets.Button(name="PUNCH IT, CHEWIE", button_type="success")
     progress = pn.indicators.Progress(name='Progress', value=100, width=600, active=False)
     pca_dim = pn.widgets.IntInput(name="PCA dimension (0 to disable)", value=max(int(len(colnames)/2),2))
-    cluster_select = pn.widgets.Select(name="Clustering method", 
-                                       options=["k-means", "x-means (AIC)", 
+    cluster_select = pn.widgets.Select(name="Clustering method",
+                                       options=["k-means", "x-means (AIC)",
                                                 "x-means (BIC)", "OPTICS"],
                                        value="x-means (BIC)")
     k = pn.widgets.IntInput(name="k (k-means and x-means only)", value=2)
@@ -48,9 +48,9 @@ def _build_widgets(colnames, lenses, title=""):
     experiment_name = pn.widgets.TextInput(name="MLflow experiment", value="derelicte")
     log_button = pn.widgets.Button(name="Log to MLflow for all posterity",
                                    button_type="primary", align="end")
-    
+
     mlflow_layout = pn.Row(experiment_name, log_button)
-    status = pn.pane.Markdown("*waiting*", width=200) 
+    status = pn.pane.Markdown("*waiting*", width=200)
     model_layout = pn.Column(
     pn.Row(
         pn.Column(
@@ -61,7 +61,7 @@ def _build_widgets(colnames, lenses, title=""):
             pn.pane.Markdown("### Lens"),
             lens1, lens2
         ),
-    ), 
+    ),
     pn.layout.Divider(),
     pn.Column(
         pn.Row(
@@ -80,12 +80,12 @@ def _build_widgets(colnames, lenses, title=""):
     ),
     pn.layout.Divider(),
     pn.Row(go_button, progress))
-    
+
     # DISPLAY WIDGETS
     #pos_button = pn.widgets.Button(name="Reset layout", button_type="primary")
     hmap = hv.HoloMap({c:hv.Points(data=pd.DataFrame({"x":[0,1], "y":[1,2]})).opts(color=c) for c in ["red","blue"]})
     fig_panel = pn.panel(hmap)
-    
+
     def _save_callback(*events):
         fig = fig_panel[0]
         bytesio = io.BytesIO()
@@ -95,16 +95,16 @@ def _build_widgets(colnames, lenses, title=""):
     sav_button = pn.widgets.FileDownload(name="Download figure (may take a few minutes)",
                                          filename=filename,
                                          callback=_save_callback)
-    layout = pn.layout.Tabs(("Modeling", model_layout), 
+    layout = pn.layout.Tabs(("Modeling", model_layout),
                             ("Visualization", pn.Column(fig_panel, sav_button,
                                                         mlflow_layout)))
-    return {"cross_selector":cross_selector, 
+    return {"cross_selector":cross_selector,
            "lens1":lens1,
            "lens2":lens2,
            "go_button":go_button,
            "progress":progress,
            "layout":layout,
-           "k":k, 
+           "k":k,
            "min_samples":min_samples,
            "pca_dim":pca_dim,
            "include_indices":include_indices,
@@ -153,7 +153,7 @@ class Mapperator(object):
     """
     Class for interactive modeling with Mapper
     """
-    
+
     def __init__(self, df, lens_data=None, compute=["svd", "isolation_forest", "l2"],
                  color_data=None, title="", mlflow_uri=None, sparse_data=None):
         """
@@ -165,7 +165,7 @@ class Mapperator(object):
         :compute: listof strings; generic lenses to precompute. can include:
             -"svd" computes first and second singular value decomposition vectors
             -"isolation_forest" assigns an anomaly score from an Isolation Forest
-            -"l2" rescales the data so each column has zero mean and unit 
+            -"l2" rescales the data so each column has zero mean and unit
                 variance, then records the L2-norm of each data point
             -"kde" estimates local density of each record using a kernel density
                 estimator. Very slow on large datasets!
@@ -207,21 +207,21 @@ class Mapperator(object):
                                        title)
         self._widgets["go_button"].on_click(self.build_mapper_model)
         self._widgets["log_button"].on_click(self._mlflow_callback)
-        
+
     def _update_lens(self):
         p = self._params
         self.lens_dict = _compute_lenses(self.df, p["include"], self.lens_data,
                                           self._old_variables_to_include, self.lens_dict,
                                           compute=self._compute)
         self._old_variables_to_include = p["include"]
-        
+
     def _build_mapper_graph(self):
         p = self._params
         lens = self.lens_dict[p["lens1"]]
         lens2 = p["lens2"]
         if lens2 is not None:
             lens2 = self.lens_dict[lens2]
-            
+
         # parse the clustering algorithm selection
         c = p["cluster_select"]
         k = p["k"]
@@ -230,9 +230,9 @@ class Mapperator(object):
         if c == "OPTICS":
             k = 0
 
-        cluster_indices, g = build_mapper_graph(self.df, lens, lens2, 
+        cluster_indices, g = build_mapper_graph(self.df, lens, lens2,
                                         num_intervals = p["num_intervals"],
-                                        f = p["overlap_frac"], 
+                                        f = p["overlap_frac"],
                                         balance = p["balance"],
                                         pca_dim = p["pca_dim"],
                                         min_samples=p["min_samples"],
@@ -240,18 +240,18 @@ class Mapperator(object):
                                         sparse_data=self._sparse_data)
         self._cluster_indices = cluster_indices
         self._g = g
-        
+
     def _build_node_df(self):
         # if we have any exogenous information we'd like to color the nodes
-        # by, combine that with the lens dict. The visualization will 
+        # by, combine that with the lens dict. The visualization will
         # automatically add all of them as coloring options.
         exog = _combine_dictionaries(self.lens_dict, self.color_data)
         p = self._params
-        self._node_df = _build_node_dataset(self.df, 
-                                            self._cluster_indices, 
-                                            lenses=exog, 
+        self._node_df = _build_node_dataset(self.df,
+                                            self._cluster_indices,
+                                            lenses=exog,
                                             include_indices=p["include_indices"])
-        
+
     def _update_fig(self):
         fig = mapper_fig(self._g, self._pos, node_df=self._node_df, width=600,
                          color=self._color_names,
@@ -259,25 +259,25 @@ class Mapperator(object):
         fig = pn.panel(fig)
         self._widgets["fig_panel"][0] = fig[0]
         self._widgets["fig_panel"][1] = fig[1]
-        
+
     def _compute_node_positions(self):
-        # see if we can start the nodes in reasonable positions using the singular 
+        # see if we can start the nodes in reasonable positions using the singular
         # values of the data
         if (self._node_df is not None)&("svd_1" in self._node_df.columns):
-            pos_priors = {i:(self._node_df["svd_1"].values[i], 
+            pos_priors = {i:(self._node_df["svd_1"].values[i],
                              self._node_df["svd_2"].values[i]) for i in range(len(self._node_df))}
         else:
             pos_priors = None
         k = 0.01/np.sqrt(len(self._g.nodes))
         self._pos = nx.layout.fruchterman_reingold_layout(self._g, k=k, pos=pos_priors)
-        
+
     def update_node_positions(self, *events):
         """
         try layout out the mapper graph again
         """
         self._compute_node_positions()
         self._update_fig()
-        
+
     def _collect_params(self):
         """
         Get any important parameters from the GUI
@@ -288,7 +288,7 @@ class Mapperator(object):
             "lens1":w["lens1"].value,
             "lens2":w["lens2"].value,
             "num_intervals":w["num_intervals"].value,
-            "overlap_frac":w["overlap_frac"].value, 
+            "overlap_frac":w["overlap_frac"].value,
             "balance":w["balance"].value,
             "pca_dim":w["pca_dim"].value,
             "min_samples":w["min_samples"].value,
@@ -299,22 +299,22 @@ class Mapperator(object):
         if params["lens2"] == "None":
             params["lens2"] = None
         self._params = params
-        
+
     def _update_filename(self):
         p = self._params
         alg = p["cluster_select"].replace(" ","_").replace("(","").replace(")","")
-            
+
         if p["lens2"] is None:
             lens = p["lens1"]
         else:
             lens = p["lens1"] + "+" + p["lens2"]
-            
+
         filename = f"mugatu_{alg}_{lens}.html"
         self._widgets["sav_button"].filename = filename
-        
+
     def _mlflow_callback(self, record_fig=True, *events):
         """
-        
+
         """
         if self.mlflow_uri is not None:
             mlflow.set_experiment(self._widgets["experiment_name"].value)
@@ -328,23 +328,23 @@ class Mapperator(object):
                 # write to file
                 with open("figure.html", "wb") as f:
                     f.write(bio.read())
-                    
+
             # compute concentration values for graph colorings
             if self.color_data is not None:
                 coldict = {c:self._node_df[c].values for c in self.color_data}
                 concentrations = _compute_node_measure_concentrations(coldict, self._g)
-                
+
             with mlflow.start_run():
                 mlflow.log_params(params)
                 if record_fig:
                     mlflow.log_artifact("figure.html")
                 if self.color_data is not None:
                     mlflow.log_metrics(concentrations)
-        
-        
+
+
     def build_mapper_model(self, *events):
         """
-        Pull parameters from the GUI, run the mapper algorithm, and 
+        Pull parameters from the GUI, run the mapper algorithm, and
         update the HoloViews display
         """
         self._widgets["progress"].value = 0
@@ -355,35 +355,35 @@ class Mapperator(object):
         logging.info("updating lenses")
         self._update_lens()
         self._widgets["progress"].value = 20
-        
+
         # build mapper graph
         logging.info("building mapper graph")
         self._build_mapper_graph()
         self._widgets["progress"].value = 40
-        
+
         # build node dataframe
         logging.info("computing node statistics")
         self._build_node_df()
         self._widgets["progress"].value = 60
-        
+
         # compute layout for visualization
         logging.info("computing graph layout")
         self._compute_node_positions()
         self._widgets["progress"].value = 80
-        
+
         # build holoviews figure
         logging.info("building figure")
         self._update_fig()
         self._widgets["progress"].value = 100
         # DONE
         self._widgets["progress"].active = False
-        
+
     def panel(self):
         """
         Return the panel object for the GUI.
         """
         return self._widgets["layout"]
-    
+
     def template(self):
         """
         Return app as a panel template. Call template.show() to
@@ -392,18 +392,18 @@ class Mapperator(object):
         vanilla = pn.template.VanillaTemplate(title="mugatu")
 
         for c in ["lens1", "lens2", "num_intervals", "overlap_frac", "pca_dim",
-                  "cluster_select", "min_samples", "balance", "include_indices", 
-                  "go_button", "progress", "status", "sav_button", 
+                  "cluster_select", "min_samples", "balance", "include_indices",
+                  "go_button", "progress", "status", "sav_button",
                   "experiment_name", "log_button"]:
             vanilla.sidebar.append(self._widgets[c])
-    
+
         vanilla.main.append(self._widgets["fig_panel"])
         return vanilla
-    
+
     def show(self):
         if not hasattr(self, "_template"):
             self._template = self.template()
-            
+
         self._template.show()
 
 

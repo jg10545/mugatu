@@ -15,13 +15,13 @@ import logging
 
 from mugatu._xmeans import _compute_xmeans, _compute_kmeans, _pca_reduce
 
-def reduce_and_cluster(X, index, pca_dim=4, k=5, min_points_per_cluster=1, 
+def reduce_and_cluster(X, index, pca_dim=4, k=5, min_points_per_cluster=1,
                        xmeans=False, aic=False, sparse_data=None,
                        **kwargs):
     """
     Reduce the dimension of a dataset with PCA, cluster with
     k-means or x-means, and return a list of indices assigned to each cluster
-    
+
     :X: (N,d) array of raw data
     :index: (N,) array of indices used to identify data in original dataframe
     :pca_dim: int; dimension < d to reduce data to. 0 to disable.
@@ -36,7 +36,7 @@ def reduce_and_cluster(X, index, pca_dim=4, k=5, min_points_per_cluster=1,
     if (sparse_data is not None)&(N > 0):
         densified = sklearn.decomposition.TruncatedSVD(pca_dim).fit_transform(sparse_data)
         X = np.concatenate([X, densified], 1)
-    
+
     # in case the lens generates an empty segment
     if N == 0:
         return []
@@ -47,16 +47,16 @@ def reduce_and_cluster(X, index, pca_dim=4, k=5, min_points_per_cluster=1,
     # similarly make adjust k if we don't have enough data
     elif N < k*min_points_per_cluster:
         k = N//min_points_per_cluster
-    
+
     # make sure data is on a common scale and float-32 (to work with FAISS)
     X = StandardScaler().fit_transform(X).astype(np.float32)
     # if using PCA, reduce dimension
     if pca_dim:
         X = _pca_reduce(X, pca_dim)
-            
-    # Cluster and get indices. 
+
+    # Cluster and get indices.
     if xmeans:
-        I = _compute_xmeans(X, aic=aic, init_k=k, 
+        I = _compute_xmeans(X, aic=aic, init_k=k,
                             min_size=min_points_per_cluster, **kwargs)
     else:
         I, _ = _compute_kmeans(X, k, **kwargs)
@@ -69,7 +69,7 @@ def reduce_and_cluster_optics(X, index, pca_dim=4, min_samples=5, sparse_data=No
     """
     Reduce the dimension of a dataset with PCA, cluster with
     OPTICS, and return a list of indices assigned to each cluster
-    
+
     :X: (N,d) array of raw data
     :index: (N,) array of indices used to identify data in original dataframe
     :pca_dim: int; dimension < d to reduce data to. 0 to disable.
@@ -86,19 +86,19 @@ def reduce_and_cluster_optics(X, index, pca_dim=4, min_samples=5, sparse_data=No
     # min_points_per_cluster- return a single cluster
     elif N < min_samples:
         return [index]
-    
+
     # make sure data is on a common scale and float-32 (to work with FAISS)
     X = StandardScaler().fit_transform(X).astype(np.float32)
     # if using PCA, reduce dimension
     if pca_dim:
         X = _pca_reduce(X, pca_dim)
-            
-    # Cluster and get indices. 
+
+    # Cluster and get indices.
     I = sklearn.cluster.OPTICS(min_samples=min_samples).fit_predict(X)
     k = I.max() + 1
     if I.min() < 0:
         logging.debug("including an outlier cluster")
-    
+
     indices = [index[I == i] for i in range(-1, k)]
     # filter out empty clusters
     indices = [i for i in indices if len(i) > 0]
@@ -107,12 +107,12 @@ def reduce_and_cluster_optics(X, index, pca_dim=4, min_samples=5, sparse_data=No
 
 
 
-def compute_clusters(df, cover, pca_dim=4, min_samples=5, k=None, 
+def compute_clusters(df, cover, pca_dim=4, min_samples=5, k=None,
                      xmeans=False, aic=False, sparse_data=None, **kwargs):
     """
     Input a dataset and cover, run k-means or OPTICS against every index set in the
     cover, and return a list containing the indices assigned to each cluster
-    
+
     :df: pandas DataFrame containing the data
     :cover: a list of arrays indexing the DataFrame, each corresponding to a different
         index set from the cover
@@ -130,29 +130,29 @@ def compute_clusters(df, cover, pca_dim=4, min_samples=5, k=None,
         sparse = [sparse_data[sdf[c].values] for c in cover]
     else:
         sparse = [None for c in cover]
-    
-    # build a dask delayed task for every filtered region of the data, 
+
+    # build a dask delayed task for every filtered region of the data,
     # so that they can be computed in parallel
     # OPTICS CASE
     if (min_samples is not None)&((k is None)|(k == 0)):
         logging.debug("clustering with OPTICS")
-        tasks = [dask.delayed(reduce_and_cluster_optics)(np.ascontiguousarray(df.loc[c,:].values), 
+        tasks = [dask.delayed(reduce_and_cluster_optics)(np.ascontiguousarray(df.loc[c,:].values),
                                               c, pca_dim=pca_dim, min_samples=min_samples,
                                               sparse_data=s)
      for c,s in zip(cover, sparse)]
     # K-MEANS CASE
     elif (k is not None)&(k > 0):
         logging.debug("clustering with k-means")
-        tasks = [dask.delayed(reduce_and_cluster)(np.ascontiguousarray(df.loc[c,:].values), 
+        tasks = [dask.delayed(reduce_and_cluster)(np.ascontiguousarray(df.loc[c,:].values),
                                               c, pca_dim=pca_dim, k=k,
                                               min_points_per_cluster=min_samples,
-                                              xmeans=xmeans, aic=aic, 
-                                              sparse_data=s, **kwargs) 
+                                              xmeans=xmeans, aic=aic,
+                                              sparse_data=s, **kwargs)
                  for c,s in zip(cover, sparse)]
     else:
         logging.critical("i don't know what to do with these clustering hyperparameters")
     results = dask.compute(tasks)
-    
+
     output_indices = []
     for r in results:
         for i in r:
