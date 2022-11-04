@@ -18,7 +18,7 @@ from mugatu._util import _lens_dict
 from mugatu._mapper import build_mapper_graph
 from mugatu._viz import mapper_fig, _build_node_dataset
 from mugatu._metrics import _compute_node_measure_concentrations
- 
+
 def _build_widgets(colnames, lenses, title=""):
     """
     generate all the Panel widgets
