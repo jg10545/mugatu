@@ -5,6 +5,7 @@ Created on Sun May 30 13:42:22 2021
 
 @author: joe
 """
+import numpy as np
 import networkx as nx
 
 def build_graph_from_indices(indices):
@@ -18,5 +19,5 @@ def build_graph_from_indices(indices):
             #w = len(set1&set2)
             w = len(sets[i]&sets[j])
             if w > 0:
-                g.add_edge(i,j, weight=w)
+                g.add_edge(i,j, weight=np.log(w+1))
     return g

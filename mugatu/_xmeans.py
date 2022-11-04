@@ -8,52 +8,32 @@ Created on Fri Jul 16 13:41:36 2021
 import numpy as np 
 import logging
 
+import sklearn.cluster, sklearn.decomposition
+    
+def _compute_kmeans(X,k, **kwargs):
+    clus = sklearn.cluster.KMeans(k)
+    clus = clus.fit(X)
+    return clus.predict(X), clus.cluster_centers_
+    
+def _pca_reduce(X, pca_dim):
+    N, d = X.shape
+    # only reduce dimension if we have enough data of
+    # high enough dimension
+    if (d <= pca_dim)|(N <= pca_dim):
+        return X
+    else:
+        return sklearn.decomposition.PCA(pca_dim).fit_transform(X)
 
-"""
-Currently having trouble getting Faiss running on my M1 Macbook. Let's add
-an sklearn-based function as a backstop
-"""
-try:
-    import faiss
-    def _compute_kmeans(X,k, **kwargs):
-        """
-        Wrapper for faiss' kmeans tool. Returns indices
-        assigned to each cluster and a (k, d) matrix of
-        cluster centroids
-        """
-        kmeans = faiss.Kmeans(X.shape[1] ,k, **kwargs)
-        kmeans.train(X)
-        D, I = kmeans.index.search(X, 1)
-        I = I.ravel()
-        return I, kmeans.centroids
-    
-    def _pca_reduce(X, pca_dim):
-        N, d = X.shape
-        # only reduce dimension if we have enough data of
-        # high enough dimension
-        if (d <= pca_dim)|(N <= pca_dim):
-            return X
-        else:
-            mat = faiss.PCAMatrix(d, pca_dim)
-            mat.train(X)
-            return mat.apply_py(X)
-except:
-    logging.warn("unable to import faiss; using sklearn instead")
-    import sklearn.cluster, sklearn.decomposition
-    
-    def _compute_kmeans(X,k, **kwargs):
-        clus = sklearn.cluster.KMeans(k)
-        clus = clus.fit(X)
-        return clus.predict(X), clus.cluster_centers_
-    
-    def _pca_reduce(X, pca_dim):
-        N, d = X.shape
-        # only reduce dimension if we have enough data of
-        # high enough dimension
-        if (d <= pca_dim)|(N <= pca_dim):
-            return X
-        else:
-            return sklearn.decomposition.PCA(pca_dim).fit_transform(X)
+def _svd_reduce(X, svd_dim):
+    if svd_dim == 0:
+        return X
+    N, d = X.shape
+    # only reduce dimension if we have enough data of
+    # high enough dimension
+    if (d <= svd_dim)|(N <= svd_dim):
+        return X
+    else:
+        return sklearn.decomposition.TruncatedSVD(svd_dim).fit_transform(X)
 
 
 
@@ -69,8 +49,23 @@ def _compute_BIC(X, centroids, I, aic=False):
     :aic: if True, compute AIC; if False, compute BIC
     """
     N, d = X.shape
-    k = centroids.shape[0]
-    variance = np.sum((X-centroids[I,:])**2)/(d*(N-k))
+    #k = centroids.shape[0]
+    # We might include centroids that aren't represented in this subset of 
+    # vectors- so compute k based on just the number represented here.
+    k = len(set(I))
+    eps = 1e-8
+    # DENSE ARRAY CASE
+    if isinstance(X, np.ndarray):
+        variance = np.sum((X-centroids[I,:])**2)/(d*(N-k))
+    # SPARSE MATRIX CASE
+    else:
+        variance = 0
+        for i in range(N):
+            variance += np.sum((np.array(X[i,:].todense())-centroids[I[i],:])**2)/(d*(N-k))
+            
+    if (N < 0)|(variance < 0):
+        print (N, variance, k)
+        assert False
     
     BIC = 0
     for i in set(I):
@@ -79,21 +74,20 @@ def _compute_BIC(X, centroids, I, aic=False):
             BIC += Nk * np.log(Nk)
             
     if aic:
-        BIC += -1*N*np.log(N) - (N*d/2)*np.log(2*np.pi*variance) - d*(N-k)/2 - k*(d+1)
+        BIC += -1*N*np.log(N) - (N*d/2)*np.log(2*np.pi*variance+eps) - d*(N-k)/2 - k*(d+1)
         BIC *= 2
     else:
-        BIC += -1*N*np.log(N) - (N*d/2)*np.log(2*np.pi*variance) - d*(N-k)/2 - np.log(N)*k*(d+1)/2
+        BIC += -1*N*np.log(N) - (N*d/2)*np.log(2*np.pi*variance+eps) - d*(N-k)/2 - np.log(N)*k*(d+1)/2
     
     return BIC
 
 
-def _compute_xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8, **kwargs):
+def _compute_xmeans(X, aic=False, min_size=0, max_depth=8, **kwargs):
     """
     Compute cluster assignments using X-means clustering
     
     :X: (N,d) float32 numpy array containing data
     :aic: if True, use AIC instead of BIC
-    :init_k: initial value of k to use
     :min_size: Guardrail to keep x-means from finding a bunch of teensy
         clusters- set this to a positive value to stop splitting whenever
         a cluster has fewer than this number of records
@@ -102,15 +96,13 @@ def _compute_xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8, **kwargs):
     """
     # set of indices that we already know don't improve with splitting
     stop_checking = set()
-    # run the initial round of k-means
-    I, centroids = _compute_kmeans(X, init_k, **kwargs)
-    
-    # Guardrail: if the initial kmeans produces any clusters with 0 or
-    #  members, the next step will fail
-    for i in range(init_k):
-        if (I == i).sum() < 2:
-            stop_checking.add(i)
-    
+    # initialize with one big cluster
+    I = np.zeros(X.shape[0], dtype=np.int64)
+    if isinstance(X, np.ndarray):
+        centroids = X.mean(0, keepdims=True)
+    else:
+        centroids = np.array(X.mean(0))
+
     # iterate over clusters, splitting if the BIC improves, up to
     # max_depth times
     for m in range(max_depth):
@@ -123,14 +115,17 @@ def _compute_xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8, **kwargs):
 
             X_subset = X[I_old==i,:]
             I_subset = I_old[I_old==i]
-            
             initial_BIC = _compute_BIC(X_subset, centroids, I_subset, aic=aic)
 
             I_next, centroids_next = _compute_kmeans(X_subset,2, **kwargs)
             # how big is the smallest new cluster?
-            smallest_cluster = np.min([(I_next == i).sum() for i in range(2)])
+            smallest_cluster = np.min([(I_next == j).sum() for j in range(2)])
+            # if the smallest cluster doesn't disqualify this split, 
             # compute BIC for split clusters
-            split_BIC = _compute_BIC(X_subset, centroids_next, I_next, aic=aic)
+            if smallest_cluster >= min_size:
+                split_BIC = _compute_BIC(X_subset, centroids_next, I_next, aic=aic)
+            else:
+                split_BIC = 1e6
 
             # keep split if BIC went up AND none of the clusters are too small
             if (initial_BIC < split_BIC)&(smallest_cluster >= min_size):
