@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import logging
 import operator
 import re
@@ -9,9 +8,9 @@ try:
     import RAKE.RAKE
 except:
     logging.debug("unable to import the python-rake library")
-    
-    
-    
+
+
+
 def _generate_candidate_keyword_scores(phrase_list, word_score, minFrequency):
     """
     Replacement for RAKE.RAKE.generate_candidate_keyword_scores() that runs
@@ -37,13 +36,13 @@ def _generate_candidate_keyword_scores(phrase_list, word_score, minFrequency):
 def fasterrake(text, max_words=5, min_characters=1, min_frequency=1, stopwords=None):
     """
     Run through the RAKE pipeline
-    
+
     :text: str; concatenated text of your corpus
     :max_words: int; max number of words per phrase
     :min_characters: int; minimum number of characters per token
     :min_frequency: int; minimum number of times a phrase has to appear in the corpus
     :stopwords: list of stopwords; if None use the Smart list
-    
+
     Returns a list of (keyword, RAKE score) tuples sorted in descending order of score
     """
     if stopwords is None:
@@ -60,10 +59,10 @@ def fasterrake(text, max_words=5, min_characters=1, min_frequency=1, stopwords=N
     return sorted_keywords
 
 
-def build_rake_tdm(corpus, max_words=5, min_characters=1, min_frequency=1, 
+def build_rake_tdm(corpus, max_words=5, min_characters=1, min_frequency=1,
                    stopwords=None, remove_urls=True):
     """
-    
+
     """
     # compile the regex sklearn uses for tokenization
     sklearn_pattern = re.compile('(?u)\\b\\w\\w+\\b')
@@ -73,12 +72,12 @@ def build_rake_tdm(corpus, max_words=5, min_characters=1, min_frequency=1,
     # a space. so RAKE won't map "big time" and "big-time" to separate keywords.
     corpus = [re.sub(splitter, " ", c) for c in corpus]
     # run RAKE on the entire corpus
-    keywords = fasterrake("\n".join(corpus), max_words=max_words, 
-                           min_characters=min_characters, min_frequency=min_frequency, 
+    keywords = fasterrake("\n".join(corpus), max_words=max_words,
+                           min_characters=min_characters, min_frequency=min_frequency,
                            stopwords=stopwords)
     # strip out keywords sklearn won't recognize or ones that have a carriage
     # return in them for some reason
-    keyword_vocab = [k[0] for k in keywords if 
+    keyword_vocab = [k[0] for k in keywords if
                      bool(re.match(sklearn_pattern, k[0]))&("\n" not in k[0])]
     if remove_urls:
         keyword_vocab = [k for k in keyword_vocab if "http" not in k]
@@ -87,4 +86,4 @@ def build_rake_tdm(corpus, max_words=5, min_characters=1, min_frequency=1,
     vec = sklearn.feature_extraction.text.TfidfVectorizer(vocabulary=keyword_vocab,
                                                           ngram_range=(1, max_words))
     tdm = vec.fit_transform(corpus)
-    return keyword_vocab, tdm                              
+    return keyword_vocab, tdm

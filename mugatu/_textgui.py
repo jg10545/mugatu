@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 import panel as pn
@@ -19,7 +18,7 @@ def find_high_tfidf_keywords(df, keywords, tdm, cluster_indices, num_tokens=10):
     # but our sparse matrix has to be indexed by 0, 1, 2, ...N-1)
     sdf = pd.Series(data=np.arange(len(df)), index=df.index.values)
     indices = [sdf[c].values for c in cluster_indices]
-    
+
     # Compute the mean and standard deviation of the CLUSTER AVERAGES of
     # each token. we'll use these to identify tokens that are interesting
     # for a CLUSTER compared to other clusters
@@ -30,7 +29,7 @@ def find_high_tfidf_keywords(df, keywords, tdm, cluster_indices, num_tokens=10):
     for i in indices:
         stddevs += ((np.array(tdm[i].mean(0)).ravel()-means)**2)/len(indices)
     stddevs = np.sqrt(stddevs)
-    
+
     # Now build a string describing interesting tokens for each cluster, by averaging
     # the rows of the term-document matrix for that cluster, shifting by the means and
     # scaling by the standard deviations we computed above, then finding the highest
@@ -47,8 +46,8 @@ def find_high_tfidf_keywords(df, keywords, tdm, cluster_indices, num_tokens=10):
 class TextMapperator(Mapperator):
     """
     """
-    
-    def __init__(self, df, tdm, vocabulary, lens_data=None, 
+
+    def __init__(self, df, tdm, vocabulary, lens_data=None,
                  compute=["svd", "isolation_forest", "l2"],
                  color_data=None, title="", mlflow_uri=None, num_tokens=10):
         """
@@ -61,7 +60,7 @@ class TextMapperator(Mapperator):
         :compute: listof strings; generic lenses to precompute. can include:
             -"svd" computes first and second singular value decomposition vectors
             -"isolation_forest" assigns an anomaly score from an Isolation Forest
-            -"l2" rescales the data so each column has zero mean and unit 
+            -"l2" rescales the data so each column has zero mean and unit
                 variance, then records the L2-norm of each data point
             -"kde" estimates local density of each record using a kernel density
                 estimator. Very slow on large datasets!
@@ -69,28 +68,28 @@ class TextMapperator(Mapperator):
             nodes in the Mapper graph
         :title: string; title for the figure
         :mlflow_uri: string; location of MLflow server for logging results
-        """            
+        """
         self._token_params = {"num_tokens":num_tokens}
-        
+
         self._meta_df = df
-        self._vocab = vocabulary      
-            
+        self._vocab = vocabulary
+
         super().__init__(df, lens_data, compute, color_data, title, mlflow_uri, sparse_data=tdm)
-        
+
     def _build_node_df(self):
         # if we have any exogenous information we'd like to color the nodes
-        # by, combine that with the lens dict. The visualization will 
+        # by, combine that with the lens dict. The visualization will
         # automatically add all of them as coloring options.
         exog = _combine_dictionaries(self.lens_dict, self.color_data)
         p = self._params
-        self._node_df = _build_node_dataset(self._meta_df, 
-                                            self._cluster_indices, 
-                                            lenses=exog, 
+        self._node_df = _build_node_dataset(self._meta_df,
+                                            self._cluster_indices,
+                                            lenses=exog,
                                             include_indices=p["include_indices"])
 
-        self._node_df["tokens"] = find_high_tfidf_keywords(self.df, self._vocab, self._sparse_data, 
+        self._node_df["tokens"] = find_high_tfidf_keywords(self.df, self._vocab, self._sparse_data,
                                    self._cluster_indices, **self._token_params)
-        
+
     def _update_fig(self):
         fig = mapper_fig(self._g, self._pos, node_df=self._node_df, width=600,
                          color=self._color_names,

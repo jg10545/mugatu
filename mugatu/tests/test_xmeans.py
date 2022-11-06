@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Fri Jul 16 13:41:49 2021
 
@@ -27,12 +25,12 @@ X[500:750,1] += 4
 def test_kmeans():
     k = 3
     I, centroids = _compute_kmeans(X, k)
-    
+
     assert len(I) == X.shape[0]
     assert centroids.shape == (k, X.shape[1])
     assert I.max() == k-1
     assert I.min() == 0
-    
+
 def test_bic():
     k = 3
     I, centroids = _compute_kmeans(X, k)
@@ -42,7 +40,7 @@ def test_bic():
     centroids_scrambled = np.random.normal(0, 1, size=centroids.shape)
     BIC_scrambled = _compute_BIC(X, centroids_scrambled, I, False)
     assert BIC_kmeans > BIC_scrambled
-    
+
 def test_aic():
     k = 3
     I, centroids = _compute_kmeans(X, k)
@@ -52,17 +50,17 @@ def test_aic():
     centroids_scrambled = np.random.normal(0, 1, size=centroids.shape)
     AIC_scrambled = _compute_BIC(X, centroids_scrambled, I, True)
     assert AIC_kmeans > AIC_scrambled
-    
+
 
 def test_compute_xmeans():
     init_k = 3
-    
+
     for aic in [True, False]:
         for min_size in [0,100]:
             I = _compute_xmeans(X, aic=aic, init_k=init_k, min_size=min_size)
-    
+
             assert I.shape == (X.shape[0],)
             assert I.max() >= init_k
-    
+
             cluster_sizes = [(I == i).sum() for i in set(I)]
             assert np.min(cluster_sizes) >= min_size

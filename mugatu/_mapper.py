@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Mon May 31 20:32:21 2021
 
@@ -11,11 +9,11 @@ import mugatu._graph
 
 
 def build_mapper_graph(df, lens, lens2=None, num_intervals=5, f=0.1, balance=False,
-                       pca_dim=4, k=None, min_samples=5, xmeans=False, aic=False, 
+                       pca_dim=4, k=None, min_samples=5, xmeans=False, aic=False,
                        sparse_data=None, **kwargs):
     """
     Run the entire mapper pipeline!
-    
+
     :df: dataframe containing raw data
     :lens: array containing the lens; same length as df
     :lens2: optional; array containing second lens
@@ -30,16 +28,16 @@ def build_mapper_graph(df, lens, lens2=None, num_intervals=5, f=0.1, balance=Fal
         number of clusters
     :aic: if True and xmeans == True, run x-means using AIC instead of BIC
     :sparse_data:
-    
+
     Returns:
     :cluster_indices: a list containing the raw-data indices associated with each cluster
     :g: NetworkX Graph object containing the Mapper graph
     """
     cover = mugatu._cover.compute_cover_indices(df.index.values, lens,
-                                                lens2=lens2, num_intervals=num_intervals, 
+                                                lens2=lens2, num_intervals=num_intervals,
                                                 f=f, balance=balance)
-    
-    cluster_indices = mugatu._cluster.compute_clusters(df, cover, pca_dim=pca_dim, 
+
+    cluster_indices = mugatu._cluster.compute_clusters(df, cover, pca_dim=pca_dim,
                                                        min_samples=min_samples, k=k,
                                                        xmeans=xmeans, aic=aic,
                                                        sparse_data=sparse_data,

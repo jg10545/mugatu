@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from mugatu._rake import fasterrake
 
 
@@ -59,5 +57,4 @@ Only shooting stars break the mold
 
 def test_fasterrake():
     allstar_keywords = fasterrake(allstar, min_frequency=2)
-    assert "years start coming" in [x[0] for x in allstar_keywords]    
-    
+    assert "years start coming" in [x[0] for x in allstar_keywords]

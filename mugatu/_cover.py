@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Sun May 30 11:52:23 2021
 
@@ -11,7 +9,7 @@ def _find_start_and_delta(minval, maxval, num_intervals, f):
     """
     Compute the spacing between start values and length of each
     interval
-    
+
     :minval: minimum value of lens
     :maxval: maximum value of lens
     :intervals: number of overlapping intervals
@@ -46,7 +44,7 @@ def _compute_1D_cover_indices(index, lens, num_intervals, f, balance=False):
             s = lens.min() + i*start
             e = s+delta
             indices.append(index[(lens >=s)&(lens < e)])
-            
+
     return indices
 
 
@@ -54,7 +52,7 @@ def compute_cover_indices(index, lens1, lens2=None, num_intervals=5, f=0.1, bala
     """
     Build a covering of a dataset as a list of arrays, where each array can be used to index
     the original dataframe to recover the subset corresponding to an element of the index set
-    
+
     :index: (N,) array of data indices
     :lens1: (N,) array representing first lens
     :lens2: optional; (N,) array representing second lens
@@ -72,5 +70,5 @@ def compute_cover_indices(index, lens1, lens2=None, num_intervals=5, f=0.1, bala
     lens2 = pd.Series(data=lens2, index=index)
     for i in indices_1D:
         indices_2D += _compute_1D_cover_indices(i, lens2[i].values, num_intervals, f, balance)
-        
+
     return indices_2D

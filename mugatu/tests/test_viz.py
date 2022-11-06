@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Mon May 31 21:03:24 2021
 
@@ -34,46 +32,46 @@ def test_build_node_dataset():
     ds = _build_node_dataset(data, clust_ind, lenses={}, include_indices=True)
     assert isinstance(ds, pd.DataFrame)
     assert len(ds) == len(clust_ind)
-    
+
 def test_build_node_dataset_without_indices():
     ds = _build_node_dataset(data, clust_ind, lenses={}, include_indices=False)
     assert isinstance(ds, pd.DataFrame)
     assert len(ds) == len(clust_ind)
-    
+
 def test_build_node_dataset_with_lenses():
     ds = _build_node_dataset(data, clust_ind, lenses={"a":lens, "b":lens2}, include_indices=True)
     assert isinstance(ds, pd.DataFrame)
     assert len(ds) == len(clust_ind)
-    
+
 
 def test_build_holoviews_fig():
     ds = _build_node_dataset(data, clust_ind, lenses={"lens":data.a.values}, include_indices=True)
     pos = nx.layout.fruchterman_reingold_layout(g, iterations=1)
-    fig = _build_holoviews_fig(g, pos, node_df=ds, color="lens",width=800, 
+    fig = _build_holoviews_fig(g, pos, node_df=ds, color="lens",width=800,
                                height=600, node_size=20, cmap="plasma")
-    
+
     assert isinstance(fig, hv.Graph)
-    
+
 def test_mapper_fig():
-    ds = _build_node_dataset(data, clust_ind, lenses={"lens":data.a.values, "lens2":data.b.values}, 
+    ds = _build_node_dataset(data, clust_ind, lenses={"lens":data.a.values, "lens2":data.b.values},
                              include_indices=True)
     pos = nx.layout.fruchterman_reingold_layout(g, iterations=1)
-    fig = mapper_fig(g, pos, node_df=ds, color="lens",width=800, 
+    fig = mapper_fig(g, pos, node_df=ds, color="lens",width=800,
                                height=600, node_size=20, cmap="plasma")
     assert isinstance(fig, hv.Graph)
-    
+
 def test_mapper_fig_holomap():
-    ds = _build_node_dataset(data, clust_ind, lenses={"lens":data.a.values, "lens2":data.b.values}, 
+    ds = _build_node_dataset(data, clust_ind, lenses={"lens":data.a.values, "lens2":data.b.values},
                              include_indices=True)
     pos = nx.layout.fruchterman_reingold_layout(g, iterations=1)
-    fig = mapper_fig(g, pos, node_df=ds, color=["lens", "lens2"],width=800, 
+    fig = mapper_fig(g, pos, node_df=ds, color=["lens", "lens2"],width=800,
                                height=600, node_size=20, cmap="plasma")
     assert isinstance(fig, hv.HoloMap)
 
 
 def test_mapper_fig_bad_color_input_raises_error():
     ds = _build_node_dataset(data, clust_ind, lenses={"lens":data.a.values,
-                                                      "lens2":data.b.values}, 
+                                                      "lens2":data.b.values},
                              include_indices=True)
     pos = nx.layout.fruchterman_reingold_layout(g, iterations=1)
     with pytest.raises(AssertionError):

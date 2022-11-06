@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Sun Jun 13 16:37:57 2021
 
@@ -21,9 +19,9 @@ def test_build_widgets():
     lenses = ["lens_foo", "lens_bar"]
     widgets = _build_widgets(colnames, lenses)
     assert isinstance(widgets, dict)
-    
+
 N = 100
-d = 4  
+d = 4
 df = pd.DataFrame(np.random.normal(0, 1, (N,d)),
                   columns=[str(i) for i in range(d)])
 lenses = {"foo":np.random.normal(0,1,N), "bar":np.random.normal(0,1,N)}

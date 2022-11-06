@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Sun May 30 12:44:27 2021
 
@@ -14,9 +12,9 @@ def test_find_start_and_delta_no_overlap():
     s, d = _find_start_and_delta(0, 100, 2, 0)
     assert s == 50
     assert d == 50
-    
-    
-    
+
+
+
 def test_compute_1D_cover_indices():
     N = 100
     num_intervals = 5
@@ -30,7 +28,7 @@ def test_compute_1D_cover_indices():
     assert isinstance(indices[0], np.ndarray)
     # overlap > 0
     assert np.sum([len(x) for x in indices]) > N
-    
+
 def test_compute_1D_cover_indices_balanced():
     N = 100
     num_intervals = 5
@@ -46,8 +44,8 @@ def test_compute_1D_cover_indices_balanced():
     assert np.sum([len(x) for x in indices]) > N
     # balance
     assert np.abs(len(indices[0])-len(indices[1])) <= 1
-    
-    
+
+
 def test_compute_cover_indices():
     N = 100
     num_intervals = 5
@@ -62,7 +60,7 @@ def test_compute_cover_indices():
     assert isinstance(indices[0], np.ndarray)
     # overlap > 0
     assert np.sum([len(x) for x in indices]) > N
-    
+
 def test_compute_cover_indices_balanced():
     N = 100
     num_intervals = 5
