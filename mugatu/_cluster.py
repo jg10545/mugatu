@@ -106,7 +106,8 @@ def reduce_and_cluster_optics(X, index, pca_dim=4, min_samples=5, sparse_data=No
 
 
 def compute_clusters(df, cover, pca_dim=4, min_samples=5, k=None,
-                     xmeans=False, aic=False, sparse_data=None, **kwargs):
+                     xmeans=False, aic=False, sparse_data=None,
+                     return_counts=False, **kwargs):
     """
     Input a dataset and cover, run k-means or OPTICS against every index set in the
     cover, and return a list containing the indices assigned to each cluster
@@ -120,6 +121,8 @@ def compute_clusters(df, cover, pca_dim=4, min_samples=5, k=None,
     :xmeans: if True and k>0, use x-means clustering with k as the initial number
         of clustering
     :aic: if True and xmeans==True, use AIC instead of BIC for x-means clustering
+    :sparse_data:
+    :return_counts: if True, return a list of the number of clusters per cover component
     :kwargs: additional keyword arguments to pass to faiss.Kmeans()
     """
     if sparse_data is not None:
@@ -152,7 +155,12 @@ def compute_clusters(df, cover, pca_dim=4, min_samples=5, k=None,
     results = dask.compute(tasks)
 
     output_indices = []
+    cover_counts = []
     for r in results:
         for i in r:
             output_indices += i
-    return output_indices
+            cover_counts.append(len(i))
+    if return_counts:
+        return output_indices, cover_counts
+    else:
+        return output_indices

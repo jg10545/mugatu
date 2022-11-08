@@ -7,6 +7,7 @@ import numpy as np
 import logging
 
 EPSILON = 1e-8
+
 """
 Currently having trouble getting Faiss running on my M1 Macbook. Let's add
 an sklearn-based function as a backstop
@@ -67,22 +68,36 @@ def _compute_BIC(X, centroids, I, aic=False):
     :aic: if True, compute AIC; if False, compute BIC
     """
     N, d = X.shape
-    k = centroids.shape[0]
-    variance = np.sum((X-centroids[I,:])**2)/(d*(N-k))
+    #k = centroids.shape[0]
+    # it's possible for centroids to be something like (10,50) even though the 10 data points
+    # are only distributed across 3 clusters. so  compute the actual number of relevant clusters.
+    k = len(set(I))
+    # getting issues when N < k. warning message for this or just
+    # fix it in calling functions?
+    # also the d in the denominator isn't in the xmeans paper. where did i get that from?
+    sum_squared_dists = np.sum((X-centroids[I,:])**2)
+    variance = sum_squared_dists/(N-k) + EPSILON
+    # K-1 class probs + MK centroid estimates + 1 variance estimate
+    num_params = d*(k+1)
 
-    BIC = 0
-    for i in set(I):
-        Nk = np.sum(I == i)
-        if Nk > 0:
-            BIC += Nk * np.log(Nk)
+    # \sum_{i} log(R_i/R)
+    cluster_prob_term = 0
+    for i in set (I):
+        Ri = np.sum(I==i)
+        cluster_prob_term += Ri * np.log(Ri/N)
+
+    # log(1/(sqrt(2pi)*sigma^M))
+    variance_term = -1*(np.log(2*np.pi)/2 + N*d*np.log(variance)/2)
+    # ( \sum_{i}||x_i - mu_i||^2 ) / 2var = (R-K)/2
+    squared_distance_term = -1*(N-k)/2
+
+    log_likelihood = cluster_prob_term + variance_term + squared_distance_term
 
     if aic:
-        BIC += -1*N*np.log(N+EPSILON) - (N*d/2)*np.log(2*np.pi*variance+EPSILON) - d*(N-k)/2 - k*(d+1)
-        BIC *= 2
+        criterion = 2*log_likelihood - 2*num_params
     else:
-        BIC += -1*N*np.log(N+EPSILON) - (N*d/2)*np.log(2*np.pi*variance+EPSILON) - d*(N-k)/2 - np.log(N+EPSILON)*k*(d+1)/2
-
-    return BIC
+        criterion = 2*log_likelihood - num_params*np.log(N)
+    return criterion
 
 
 def _compute_xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8, **kwargs):
@@ -103,10 +118,10 @@ def _compute_xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8, **kwargs):
     # run the initial round of k-means
     I, centroids = _compute_kmeans(X, init_k, **kwargs)
 
-    # Guardrail: if the initial kmeans produces any clusters with 0 or
-    #  members, the next step will fail
+    # Guardrail: if the initial kmeans produces any clusters at or below
+    # the min_size, add them to the stoplist
     for i in range(init_k):
-        if (I == i).sum() < 2:
+        if (I == i).sum() <= min_size:
             stop_checking.add(i)
 
     # iterate over clusters, splitting if the BIC improves, up to
@@ -145,6 +160,7 @@ def _compute_xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8, **kwargs):
         if not keep_going:
             logging.debug(f"no clusters split; interrupting xmeans at depth {m}")
             break
+            
     num_clusters = I.max()+1
     logging.debug(f"xmeans completed with {num_clusters} clusters found")
     return I

@@ -228,16 +228,18 @@ class Mapperator(object):
         if c == "OPTICS":
             k = 0
 
-        cluster_indices, g = build_mapper_graph(self.df, lens, lens2,
+        cluster_indices, g, cover_counts = build_mapper_graph(self.df, lens, lens2,
                                         num_intervals = p["num_intervals"],
                                         f = p["overlap_frac"],
                                         balance = p["balance"],
                                         pca_dim = p["pca_dim"],
                                         min_samples=p["min_samples"],
                                         k=k, xmeans=xmeans, aic=aic,
+                                        return_counts=True,
                                         sparse_data=self._sparse_data)
         self._cluster_indices = cluster_indices
         self._g = g
+        self._cover_counts = cover_counts
 
     def _build_node_df(self):
         # if we have any exogenous information we'd like to color the nodes
@@ -351,30 +353,43 @@ class Mapperator(object):
         self._update_filename()
         # update lenses if necessary
         logging.info("updating lenses")
+        self._widgets["status"].object = "updating lenses"
         self._update_lens()
         self._widgets["progress"].value = 20
 
         # build mapper graph
         logging.info("building mapper graph")
+        self._widgets["status"].object = "building mapper graph"
         self._build_mapper_graph()
         self._widgets["progress"].value = 40
 
         # build node dataframe
         logging.info("computing node statistics")
+        self._widgets["status"].object = "computing node statistics"
         self._build_node_df()
         self._widgets["progress"].value = 60
 
         # compute layout for visualization
-        logging.info("computing graph layout")
+        logging.info("building graph layout")
+        self._widgets["status"].object = "building graph layout"
         self._compute_node_positions()
         self._widgets["progress"].value = 80
 
         # build holoviews figure
         logging.info("building figure")
+        self._widgets["status"].object = "building figure"
         self._update_fig()
         self._widgets["progress"].value = 100
         # DONE
         self._widgets["progress"].active = False
+
+        summary = """
+        Cover elements: {}\n
+        Mean clusters per element: {}\n
+        Elements with just one cluster: {}
+        """.format(len(self._cover_counts),
+                   round(np.mean(self._cover_counts), 1), np.sum([c == 1 for c in self._cover_counts]))
+        self._widgets["status"].object = summary
 
     def panel(self):
         """
@@ -391,8 +406,8 @@ class Mapperator(object):
 
         for c in ["lens1", "lens2", "num_intervals", "overlap_frac", "pca_dim",
                   "cluster_select", "min_samples", "balance", "include_indices",
-                  "go_button", "progress", "status", "sav_button",
-                  "experiment_name", "log_button"]:
+                  "go_button", "progress", "sav_button",
+                  "experiment_name", "log_button", "status"]:
             vanilla.sidebar.append(self._widgets[c])
 
         vanilla.main.append(self._widgets["fig_panel"])
