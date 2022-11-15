@@ -160,7 +160,7 @@ def _compute_xmeans(X, aic=False, init_k=3, min_size=0, max_depth=8, **kwargs):
         if not keep_going:
             logging.debug(f"no clusters split; interrupting xmeans at depth {m}")
             break
-            
+
     num_clusters = I.max()+1
     logging.debug(f"xmeans completed with {num_clusters} clusters found")
     return I

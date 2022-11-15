@@ -31,7 +31,7 @@ def _build_widgets(colnames, lenses, title=""):
     lens2 = pn.widgets.Select(name="Lens 2", options=["None"]+lenses)
     go_button = pn.widgets.Button(name="PUNCH IT, CHEWIE", button_type="success")
     progress = pn.indicators.Progress(name='Progress', value=100, width=600, active=False)
-    pca_dim = pn.widgets.IntInput(name="PCA dimension (0 to disable)", value=max(int(len(colnames)/2),2))
+    pca_dim = pn.widgets.IntInput(name="PCA dimension (0 to disable)", value=0)#max(int(len(colnames)/2),2))
     cluster_select = pn.widgets.Select(name="Clustering method",
                                        options=["k-means", "x-means (AIC)",
                                                 "x-means (BIC)", "OPTICS"],
@@ -384,11 +384,12 @@ class Mapperator(object):
         self._widgets["progress"].active = False
 
         summary = """
-        Cover elements: {}\n
-        Mean clusters per element: {}\n
-        Elements with just one cluster: {}
-        """.format(len(self._cover_counts),
-                   round(np.mean(self._cover_counts), 1), np.sum([c == 1 for c in self._cover_counts]))
+                - Cover elements with just one cluster: {}/{}
+                - Disconnected nodes: {}/{}
+                """.format(np.sum([c == 1 for c in self._cover_counts]),
+                           len(self._cover_counts),
+                           len([x for x in nx.degree(self._g) if x[1] == 0]),
+                           len(self._g.nodes))
         self._widgets["status"].object = summary
 
     def panel(self):

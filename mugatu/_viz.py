@@ -6,7 +6,7 @@ Created on Mon May 31 21:02:02 2021
 import numpy as np
 import pandas as pd
 import holoviews as hv
-from bokeh.models import HoverTool
+from bokeh.models import HoverTool, LassoSelectTool, BoxSelectTool
 
 
 def _build_node_dataset(df, cluster_indices, lenses={}, include_indices=True, num=3):
@@ -81,7 +81,8 @@ def _build_holoviews_fig(g, positions, node_df=None, color=[], width=800,
         else:
             for c in color:
                 tooltips.append((c, "@"+c))
-        tools = [HoverTool(tooltips=tooltips)]
+        tools = [HoverTool(tooltips=tooltips),
+                 LassoSelectTool(), BoxSelectTool()]
         node_df = hv.Dataset(node_df, kdims=list(node_df.columns))
     else:
         tools = []
