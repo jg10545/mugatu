@@ -133,3 +133,47 @@ def mapper_fig(g, positions, node_df=None, color=[], width=800,
         return hv.HoloMap(color_dict, kdims=["Color nodes by"])
     else:
         assert False, "don't know what to do with the argument you passes to `color`"
+
+
+def _prep_linked_fig(g, node_df, pos=None):
+    """
+
+    """
+    if pos is None:
+        pos = nx.layout.fruchterman_reingold_layout
+    graphfig = hv.Graph.from_networkx(g, pos)
+    edgefig = graphfig.edgepaths.opts(line_alpha=0.5)
+    nodedata = graphfig.nodes.data
+
+    cols = [c for c in node_df.columns if c not in ["low", "high"]]
+    merged = nodedata.merge(node_df[cols], on="index", how="inner")
+
+    return merged, edgefig
+
+
+def _build_linked_holoviews_fig(df, edgefig, x, y, colors=[], width=600,
+                                height=300, node_size=20, cmap="plasma", title=""):
+    """
+
+    """
+    #colors = [x for x in df.columns if x not in ["indices", "index", "high", "low", "size", "x", "y"]]
+    maxsize = df.size.max()
+    tools = ["hover", "box_select", "lasso_select", "tap"]
+
+    def _genmap(color, x, y):
+        nodefig = hv.Points(df, kdims=["x", "y"]).opts(size=0.5 * node_size * (1 + hv.dim("size") / maxsize),
+                                                       tools=tools,
+                                                       color=hv.dim(color), cmap=cmap, xaxis=None, yaxis=None,
+                                                       title="mapper graph")
+        featurefig = hv.Points(df, kdims=[x, y]).opts(size=0.5 * node_size * (1 + hv.dim("size") / maxsize),
+                                                      tools=tools, show_grid=True,
+                                                      color=hv.dim(color), cmap=cmap,
+                                                      title="node attributes")
+        #return (edgefig * nodefig + featurefig).opts(hv.opts.Layout(shared_datasource=True)).cols(1).opts(width=width,
+        #                                                                                          height=height)
+        return ((edgefig * nodefig).opts(width=width, height=height) + featurefig.opts(width=width, height=height)).opts(
+            hv.opts.Layout(shared_datasource=True)).cols(1)
+
+    hmdict = {c: _genmap(c, x, y)
+              for c in colors}
+    return hv.HoloMap(hmdict, kdims=["Color nodes by"]).collate()

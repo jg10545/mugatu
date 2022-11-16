@@ -14,10 +14,10 @@ import mlflow
 
 from mugatu._util import _lens_dict
 from mugatu._mapper import build_mapper_graph
-from mugatu._viz import mapper_fig, _build_node_dataset
+from mugatu._viz import mapper_fig, _build_node_dataset, _prep_linked_fig, _build_linked_holoviews_fig
 from mugatu._metrics import _compute_node_measure_concentrations
 
-def _build_widgets(colnames, lenses, title=""):
+def _build_widgets(colnames, lenses, title="", columns=None):
     """
     generate all the Panel widgets
     """
@@ -41,7 +41,7 @@ def _build_widgets(colnames, lenses, title=""):
                                       value=5)
     num_intervals = pn.widgets.IntInput(name="Number of intervals", value=5)
     overlap_frac = pn.widgets.FloatInput(name="Overlap fraction", value=0.25)
-    balance = pn.widgets.Checkbox(name="Balance intervals", value=False)
+    balance = pn.widgets.Checkbox(name="Balance intervals", value=True)
     include_indices = pn.widgets.Checkbox(name="Include indices in visualization", value=False)
     experiment_name = pn.widgets.TextInput(name="MLflow experiment", value="derelicte")
     log_button = pn.widgets.Button(name="Log to MLflow for all posterity",
@@ -96,7 +96,7 @@ def _build_widgets(colnames, lenses, title=""):
     layout = pn.layout.Tabs(("Modeling", model_layout),
                             ("Visualization", pn.Column(fig_panel, sav_button,
                                                         mlflow_layout)))
-    return {"cross_selector":cross_selector,
+    outdict = {"cross_selector":cross_selector,
            "lens1":lens1,
            "lens2":lens2,
            "go_button":go_button,
@@ -115,6 +115,12 @@ def _build_widgets(colnames, lenses, title=""):
            "log_button":log_button,
            "cluster_select":cluster_select,
            "status":status}
+    if columns is not None:
+        cols = ["mean_"+c for c in columns]
+        outdict["x"] = pn.widgets.Select(name="x", options=cols)
+        outdict["y"] = pn.widgets.Select(name="y", options=cols)
+
+    return outdict
 
 
 
@@ -202,7 +208,7 @@ class Mapperator(object):
             mlflow.set_tracking_uri(mlflow_uri)
         # set up gui
         self._widgets = _build_widgets(list(df.columns), list(self.lens_dict.keys()),
-                                       title)
+                                       title, columns=list(df.columns))
         self._widgets["go_button"].on_click(self.build_mapper_model)
         self._widgets["log_button"].on_click(self._mlflow_callback)
 
@@ -253,9 +259,12 @@ class Mapperator(object):
                                             include_indices=p["include_indices"])
 
     def _update_fig(self):
-        fig = mapper_fig(self._g, self._pos, node_df=self._node_df, width=600,
-                         color=self._color_names,
-                         title=self._title)
+        self._merged, self._edgefig = _prep_linked_fig(self._g, self._node_df, pos=self._pos)
+        fig = _build_linked_holoviews_fig(self._merged, self._edgefig,
+                                          self._widgets["x"].value,
+                                          self._widgets["y"].value,
+                                          colors=self._color_names,
+                                        width=700, height=350, node_size=20, cmap="plasma", title=self._title)
         fig = pn.panel(fig)
         self._widgets["fig_panel"][0] = fig[0]
         self._widgets["fig_panel"][1] = fig[1]
@@ -405,11 +414,18 @@ class Mapperator(object):
         """
         vanilla = pn.template.VanillaTemplate(title="mugatu")
 
-        for c in ["lens1", "lens2", "num_intervals", "overlap_frac", "pca_dim",
-                  "cluster_select", "min_samples", "balance", "include_indices",
-                  "go_button", "progress", "sav_button",
-                  "experiment_name", "log_button", "status"]:
-            vanilla.sidebar.append(self._widgets[c])
+        """for c in ["lens1", "lens2", "num_intervals", "overlap_frac", "pca_dim",
+                  "cluster_select", "min_samples", "balance",
+                  "go_button", "progress", "x", "y", "sav_button",
+                  "experiment_name", "log_button", "status"]:"""
+
+        w = self._widgets
+        for c in [w["lens1"], w["lens2"], w["num_intervals"], w["overlap_frac"],
+                  pn.Accordion(('More options', pn.Column(w["pca_dim"],
+                      w["cluster_select"], w["min_samples"], w["balance"]))),
+                      w["go_button"], w["progress"], w["x"], w["y"], w["sav_button"],
+                      w["experiment_name"], w["log_button"], w["status"]]:
+            vanilla.sidebar.append(c)
 
         vanilla.main.append(self._widgets["fig_panel"])
         return vanilla
