@@ -17,7 +17,7 @@ from mugatu._mapper import build_mapper_graph
 from mugatu._viz import mapper_fig, _build_node_dataset, _prep_linked_fig, _build_linked_holoviews_fig
 from mugatu._metrics import _compute_node_measure_concentrations
 
-def _build_widgets(colnames, lenses, title="", columns=None):
+def _build_widgets(colnames, lenses, title="", columns=None, color_names=[]):
     """
     generate all the Panel widgets
     """
@@ -81,8 +81,10 @@ def _build_widgets(colnames, lenses, title="", columns=None):
 
     # DISPLAY WIDGETS
     #pos_button = pn.widgets.Button(name="Reset layout", button_type="primary")
-    hmap = hv.HoloMap({c:hv.Points(data=pd.DataFrame({"x":[0,1], "y":[1,2]})).opts(color=c) for c in ["red","blue"]})
-    fig_panel = pn.panel(hmap)
+    #hmap = hv.HoloMap({c:hv.Points(data=pd.DataFrame({"x":[0,1], "y":[1,2]})).opts(color=c) for c in ["red","blue"]})
+    #fig_panel = pn.panel(hmap)
+    fig_panel = pn.pane.HoloViews()
+    #fig_panel = pn.panel(hv.Points(data=pd.DataFrame({"x":[0,1], "y":[1,2]})))
 
     def _save_callback(*events):
         fig = fig_panel[0]
@@ -119,6 +121,7 @@ def _build_widgets(colnames, lenses, title="", columns=None):
         cols = ["mean_"+c for c in columns]
         outdict["x"] = pn.widgets.Select(name="x", options=cols)
         outdict["y"] = pn.widgets.Select(name="y", options=cols)
+        outdict["color"] = pn.widgets.Select(name="color", options=color_names)
 
     return outdict
 
@@ -208,9 +211,11 @@ class Mapperator(object):
             mlflow.set_tracking_uri(mlflow_uri)
         # set up gui
         self._widgets = _build_widgets(list(df.columns), list(self.lens_dict.keys()),
-                                       title, columns=list(df.columns))
+                                       title, columns=list(df.columns), color_names=self._color_names)
         self._widgets["go_button"].on_click(self.build_mapper_model)
         self._widgets["log_button"].on_click(self._mlflow_callback)
+        for i in ["x", "y", "color"]:
+            self._widgets[f"watcher_{i}"] = self._widgets[i].param.watch(self._update_fig, ["value"])
 
     def _update_lens(self):
         p = self._params
@@ -258,16 +263,18 @@ class Mapperator(object):
                                             lenses=exog,
                                             include_indices=p["include_indices"])
 
-    def _update_fig(self):
-        self._merged, self._edgefig = _prep_linked_fig(self._g, self._node_df, pos=self._pos)
+    def _update_fig(self, *events):
+        #self._merged, self._edgefig = _prep_linked_fig(self._g, self._node_df, pos=self._pos)
         fig = _build_linked_holoviews_fig(self._merged, self._edgefig,
                                           self._widgets["x"].value,
                                           self._widgets["y"].value,
-                                          colors=self._color_names,
+                                          #colors=self._color_names,
+                                          colors=self._widgets["color"].value,
                                         width=700, height=350, node_size=20, cmap="plasma", title=self._title)
-        fig = pn.panel(fig)
-        self._widgets["fig_panel"][0] = fig[0]
-        self._widgets["fig_panel"][1] = fig[1]
+        #fig = pn.panel(fig)
+        #self._widgets["fig_panel"][0] = fig[0]
+        #self._widgets["fig_panel"][1] = fig[1]
+        self._widgets["fig_panel"].object = fig
 
     def _compute_node_positions(self):
         # see if we can start the nodes in reasonable positions using the singular
@@ -387,6 +394,7 @@ class Mapperator(object):
         # build holoviews figure
         logging.info("building figure")
         self._widgets["status"].object = "building figure"
+        self._merged, self._edgefig = _prep_linked_fig(self._g, self._node_df, pos=self._pos)
         self._update_fig()
         self._widgets["progress"].value = 100
         # DONE
@@ -423,8 +431,9 @@ class Mapperator(object):
         for c in [w["lens1"], w["lens2"], w["num_intervals"], w["overlap_frac"],
                   pn.Accordion(('More options', pn.Column(w["pca_dim"],
                       w["cluster_select"], w["min_samples"], w["balance"]))),
-                      w["go_button"], w["progress"], w["x"], w["y"], w["sav_button"],
-                      w["experiment_name"], w["log_button"], w["status"]]:
+                      w["go_button"], w["progress"], w["x"], w["y"], w["color"],
+                  pn.Accordion(('Log and save', pn.Column(w["sav_button"],
+                      w["experiment_name"], w["log_button"]))), w["status"]]:
             vanilla.sidebar.append(c)
 
         vanilla.main.append(self._widgets["fig_panel"])

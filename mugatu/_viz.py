@@ -174,6 +174,9 @@ def _build_linked_holoviews_fig(df, edgefig, x, y, colors=[], width=600,
         return ((edgefig * nodefig).opts(width=width, height=height) + featurefig.opts(width=width, height=height)).opts(
             hv.opts.Layout(shared_datasource=True)).cols(1)
 
-    hmdict = {c: _genmap(c, x, y)
+    if isinstance(colors, list):
+        hmdict = {c: _genmap(c, x, y)
               for c in colors}
-    return hv.HoloMap(hmdict, kdims=["Color nodes by"]).collate()
+        return hv.HoloMap(hmdict, kdims=["Color nodes by"]).collate()
+    else:
+        return _genmap(colors,x,y)
