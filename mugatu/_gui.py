@@ -214,7 +214,7 @@ class Mapperator(object):
                                        title, columns=list(df.columns), color_names=self._color_names)
         self._widgets["go_button"].on_click(self.build_mapper_model)
         self._widgets["log_button"].on_click(self._mlflow_callback)
-        for i in ["x", "y", "color"]:
+        for i in ["x", "y"]:#, "color"]:
             self._widgets[f"watcher_{i}"] = self._widgets[i].param.watch(self._update_fig, ["value"])
 
     def _update_lens(self):
@@ -265,11 +265,18 @@ class Mapperator(object):
 
     def _update_fig(self, *events):
         if hasattr(self, "_edgefig"):
+            """
             fig = _build_linked_holoviews_fig(self._merged, self._edgefig,
                                           self._widgets["x"].value,
                                           self._widgets["y"].value,
                                           colors=self._widgets["color"].value,
-                                        width=700, height=350, node_size=20, cmap="plasma", title=self._title)
+                                        width=700, height=350, node_size=20, cmap="plasma", title=self._title)"""
+
+            fig = _build_linked_holoviews_fig(self._merged, self._edgefig,
+                                              self._widgets["x"].value,
+                                              self._widgets["y"].value,
+                                              colors=self._color_names,
+                                              width=700, height=350, node_size=20, cmap="plasma", title=self._title)
 
             self._widgets["fig_panel"].object = fig
 
@@ -428,7 +435,7 @@ class Mapperator(object):
         w = self._widgets
         for c in [w["lens1"], w["lens2"], w["num_intervals"], w["overlap_frac"],
                   w["cluster_select"], w["min_samples"], w["balance"],
-                      w["go_button"], w["progress"], w["x"], w["y"], w["color"],
+                      w["go_button"], w["progress"], w["x"], w["y"],
                   pn.Accordion(('Log and save', pn.Column(w["sav_button"],
                       w["experiment_name"], w["log_button"]))), w["status"]]:
             vanilla.sidebar.append(c)
