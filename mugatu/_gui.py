@@ -264,17 +264,14 @@ class Mapperator(object):
                                             include_indices=p["include_indices"])
 
     def _update_fig(self, *events):
-        #self._merged, self._edgefig = _prep_linked_fig(self._g, self._node_df, pos=self._pos)
-        fig = _build_linked_holoviews_fig(self._merged, self._edgefig,
+        if hasattr(self, "_edgefig"):
+            fig = _build_linked_holoviews_fig(self._merged, self._edgefig,
                                           self._widgets["x"].value,
                                           self._widgets["y"].value,
-                                          #colors=self._color_names,
                                           colors=self._widgets["color"].value,
                                         width=700, height=350, node_size=20, cmap="plasma", title=self._title)
-        #fig = pn.panel(fig)
-        #self._widgets["fig_panel"][0] = fig[0]
-        #self._widgets["fig_panel"][1] = fig[1]
-        self._widgets["fig_panel"].object = fig
+
+            self._widgets["fig_panel"].object = fig
 
     def _compute_node_positions(self):
         # see if we can start the nodes in reasonable positions using the singular
@@ -400,6 +397,7 @@ class Mapperator(object):
         # DONE
         self._widgets["progress"].active = False
 
+        self._widgets["status"].object = "computing summary stats"
         summary = """
                 - Cover elements with just one cluster: {}/{}
                 - Disconnected nodes: {}/{}
@@ -429,8 +427,7 @@ class Mapperator(object):
 
         w = self._widgets
         for c in [w["lens1"], w["lens2"], w["num_intervals"], w["overlap_frac"],
-                  pn.Accordion(('More options', pn.Column(w["pca_dim"],
-                      w["cluster_select"], w["min_samples"], w["balance"]))),
+                  w["cluster_select"], w["min_samples"], w["balance"],
                       w["go_button"], w["progress"], w["x"], w["y"], w["color"],
                   pn.Accordion(('Log and save', pn.Column(w["sav_button"],
                       w["experiment_name"], w["log_button"]))), w["status"]]:

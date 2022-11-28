@@ -156,21 +156,24 @@ def _build_linked_holoviews_fig(df, edgefig, x, y, colors=[], width=600,
     """
 
     """
-    #colors = [x for x in df.columns if x not in ["indices", "index", "high", "low", "size", "x", "y"]]
     maxsize = df.size.max()
     tools = ["hover", "box_select", "lasso_select", "tap"]
 
     def _genmap(color, x, y):
-        nodefig = hv.Points(df, kdims=["x", "y"]).opts(size=0.5 * node_size * (1 + hv.dim("size") / maxsize),
-                                                       tools=tools,
-                                                       color=hv.dim(color), cmap=cmap, xaxis=None, yaxis=None,
-                                                       title="mapper graph")
-        featurefig = hv.Points(df, kdims=[x, y]).opts(size=0.5 * node_size * (1 + hv.dim("size") / maxsize),
-                                                      tools=tools, show_grid=True,
-                                                      color=hv.dim(color), cmap=cmap,
-                                                      title="node attributes")
-        #return (edgefig * nodefig + featurefig).opts(hv.opts.Layout(shared_datasource=True)).cols(1).opts(width=width,
-        #                                                                                          height=height)
+        opts = {
+            "colorbar":True,
+            "tools":tools,
+            "size":0.5 * node_size * (1 + hv.dim("size") / maxsize),
+            "color":hv.dim(color),
+            "cmap":cmap,
+            "nonselection_fill_alpha":0.,
+            "selection_fill_alpha":0.75
+        }
+        nodefig = hv.Points(df, kdims=["x", "y"]).opts(xaxis=None, yaxis=None,
+                                                       title="mapper graph", **opts)
+        featurefig = hv.Points(df, kdims=[x, y]).opts(show_grid=True,
+                                                      title="node attributes", **opts)
+
         return ((edgefig * nodefig).opts(width=width, height=height) + featurefig.opts(width=width, height=height)).opts(
             hv.opts.Layout(shared_datasource=True)).cols(1)
 
