@@ -14,10 +14,10 @@ import mlflow
 
 from mugatu._util import _lens_dict
 from mugatu._mapper import build_mapper_graph
-from mugatu._viz import mapper_fig, _build_node_dataset
+from mugatu._viz import mapper_fig, _build_node_dataset, _prep_linked_fig, _build_linked_holoviews_fig
 from mugatu._metrics import _compute_node_measure_concentrations
 
-def _build_widgets(colnames, lenses, title=""):
+def _build_widgets(colnames, lenses, title="", columns=None, color_names=[]):
     """
     generate all the Panel widgets
     """
@@ -31,7 +31,7 @@ def _build_widgets(colnames, lenses, title=""):
     lens2 = pn.widgets.Select(name="Lens 2", options=["None"]+lenses)
     go_button = pn.widgets.Button(name="PUNCH IT, CHEWIE", button_type="success")
     progress = pn.indicators.Progress(name='Progress', value=100, width=600, active=False)
-    pca_dim = pn.widgets.IntInput(name="PCA dimension (0 to disable)", value=max(int(len(colnames)/2),2))
+    pca_dim = pn.widgets.IntInput(name="PCA dimension (0 to disable)", value=0)#max(int(len(colnames)/2),2))
     cluster_select = pn.widgets.Select(name="Clustering method",
                                        options=["k-means", "x-means (AIC)",
                                                 "x-means (BIC)", "OPTICS"],
@@ -41,7 +41,7 @@ def _build_widgets(colnames, lenses, title=""):
                                       value=5)
     num_intervals = pn.widgets.IntInput(name="Number of intervals", value=5)
     overlap_frac = pn.widgets.FloatInput(name="Overlap fraction", value=0.25)
-    balance = pn.widgets.Checkbox(name="Balance intervals", value=False)
+    balance = pn.widgets.Checkbox(name="Balance intervals", value=True)
     include_indices = pn.widgets.Checkbox(name="Include indices in visualization", value=False)
     experiment_name = pn.widgets.TextInput(name="MLflow experiment", value="derelicte")
     log_button = pn.widgets.Button(name="Log to MLflow for all posterity",
@@ -81,8 +81,10 @@ def _build_widgets(colnames, lenses, title=""):
 
     # DISPLAY WIDGETS
     #pos_button = pn.widgets.Button(name="Reset layout", button_type="primary")
-    hmap = hv.HoloMap({c:hv.Points(data=pd.DataFrame({"x":[0,1], "y":[1,2]})).opts(color=c) for c in ["red","blue"]})
-    fig_panel = pn.panel(hmap)
+    #hmap = hv.HoloMap({c:hv.Points(data=pd.DataFrame({"x":[0,1], "y":[1,2]})).opts(color=c) for c in ["red","blue"]})
+    #fig_panel = pn.panel(hmap)
+    fig_panel = pn.pane.HoloViews()
+    #fig_panel = pn.panel(hv.Points(data=pd.DataFrame({"x":[0,1], "y":[1,2]})))
 
     def _save_callback(*events):
         fig = fig_panel[0]
@@ -96,7 +98,7 @@ def _build_widgets(colnames, lenses, title=""):
     layout = pn.layout.Tabs(("Modeling", model_layout),
                             ("Visualization", pn.Column(fig_panel, sav_button,
                                                         mlflow_layout)))
-    return {"cross_selector":cross_selector,
+    outdict = {"cross_selector":cross_selector,
            "lens1":lens1,
            "lens2":lens2,
            "go_button":go_button,
@@ -115,6 +117,13 @@ def _build_widgets(colnames, lenses, title=""):
            "log_button":log_button,
            "cluster_select":cluster_select,
            "status":status}
+    if columns is not None:
+        cols = ["mean_"+c for c in columns]
+        outdict["x"] = pn.widgets.Select(name="x", options=cols)
+        outdict["y"] = pn.widgets.Select(name="y", options=cols)
+        outdict["color"] = pn.widgets.Select(name="color", options=color_names)
+
+    return outdict
 
 
 
@@ -202,9 +211,11 @@ class Mapperator(object):
             mlflow.set_tracking_uri(mlflow_uri)
         # set up gui
         self._widgets = _build_widgets(list(df.columns), list(self.lens_dict.keys()),
-                                       title)
+                                       title, columns=list(df.columns), color_names=self._color_names)
         self._widgets["go_button"].on_click(self.build_mapper_model)
         self._widgets["log_button"].on_click(self._mlflow_callback)
+        for i in ["x", "y"]:#, "color"]:
+            self._widgets[f"watcher_{i}"] = self._widgets[i].param.watch(self._update_fig, ["value"])
 
     def _update_lens(self):
         p = self._params
@@ -228,16 +239,18 @@ class Mapperator(object):
         if c == "OPTICS":
             k = 0
 
-        cluster_indices, g = build_mapper_graph(self.df, lens, lens2,
+        cluster_indices, g, cover_counts = build_mapper_graph(self.df, lens, lens2,
                                         num_intervals = p["num_intervals"],
                                         f = p["overlap_frac"],
                                         balance = p["balance"],
                                         pca_dim = p["pca_dim"],
                                         min_samples=p["min_samples"],
                                         k=k, xmeans=xmeans, aic=aic,
+                                        return_counts=True,
                                         sparse_data=self._sparse_data)
         self._cluster_indices = cluster_indices
         self._g = g
+        self._cover_counts = cover_counts
 
     def _build_node_df(self):
         # if we have any exogenous information we'd like to color the nodes
@@ -250,13 +263,22 @@ class Mapperator(object):
                                             lenses=exog,
                                             include_indices=p["include_indices"])
 
-    def _update_fig(self):
-        fig = mapper_fig(self._g, self._pos, node_df=self._node_df, width=600,
-                         color=self._color_names,
-                         title=self._title)
-        fig = pn.panel(fig)
-        self._widgets["fig_panel"][0] = fig[0]
-        self._widgets["fig_panel"][1] = fig[1]
+    def _update_fig(self, *events):
+        if hasattr(self, "_edgefig"):
+            """
+            fig = _build_linked_holoviews_fig(self._merged, self._edgefig,
+                                          self._widgets["x"].value,
+                                          self._widgets["y"].value,
+                                          colors=self._widgets["color"].value,
+                                        width=700, height=350, node_size=20, cmap="plasma", title=self._title)"""
+
+            fig = _build_linked_holoviews_fig(self._merged, self._edgefig,
+                                              self._widgets["x"].value,
+                                              self._widgets["y"].value,
+                                              colors=self._color_names,
+                                              width=700, height=350, node_size=20, cmap="plasma", title=self._title)
+
+            self._widgets["fig_panel"].object = fig
 
     def _compute_node_positions(self):
         # see if we can start the nodes in reasonable positions using the singular
@@ -351,30 +373,48 @@ class Mapperator(object):
         self._update_filename()
         # update lenses if necessary
         logging.info("updating lenses")
+        self._widgets["status"].object = "updating lenses"
         self._update_lens()
         self._widgets["progress"].value = 20
 
         # build mapper graph
         logging.info("building mapper graph")
+        self._widgets["status"].object = "building mapper graph"
         self._build_mapper_graph()
         self._widgets["progress"].value = 40
 
         # build node dataframe
         logging.info("computing node statistics")
+        self._widgets["status"].object = "computing node statistics"
         self._build_node_df()
         self._widgets["progress"].value = 60
 
         # compute layout for visualization
-        logging.info("computing graph layout")
+        logging.info("building graph layout")
+        self._widgets["status"].object = "building graph layout"
         self._compute_node_positions()
         self._widgets["progress"].value = 80
 
         # build holoviews figure
         logging.info("building figure")
+        self._widgets["status"].object = "building figure"
+        self._merged, self._edgefig = _prep_linked_fig(self._g, self._node_df, pos=self._pos)
+        self._merged["high"] = self._node_df["high"]
+        self._merged["low"] = self._node_df["low"]
         self._update_fig()
         self._widgets["progress"].value = 100
         # DONE
         self._widgets["progress"].active = False
+
+        self._widgets["status"].object = "computing summary stats"
+        summary = """
+                - Cover elements with just one cluster: {}/{}
+                - Disconnected nodes: {}/{}
+                """.format(np.sum([c == 1 for c in self._cover_counts]),
+                           len(self._cover_counts),
+                           len([x for x in nx.degree(self._g) if x[1] == 0]),
+                           len(self._g.nodes))
+        self._widgets["status"].object = summary
 
     def panel(self):
         """
@@ -389,11 +429,18 @@ class Mapperator(object):
         """
         vanilla = pn.template.VanillaTemplate(title="mugatu")
 
-        for c in ["lens1", "lens2", "num_intervals", "overlap_frac", "pca_dim",
-                  "cluster_select", "min_samples", "balance", "include_indices",
-                  "go_button", "progress", "status", "sav_button",
-                  "experiment_name", "log_button"]:
-            vanilla.sidebar.append(self._widgets[c])
+        """for c in ["lens1", "lens2", "num_intervals", "overlap_frac", "pca_dim",
+                  "cluster_select", "min_samples", "balance",
+                  "go_button", "progress", "x", "y", "sav_button",
+                  "experiment_name", "log_button", "status"]:"""
+
+        w = self._widgets
+        for c in [w["lens1"], w["lens2"], w["num_intervals"], w["overlap_frac"],
+                  w["cluster_select"], w["min_samples"], w["balance"],
+                      w["go_button"], w["progress"], w["x"], w["y"],
+                  pn.Accordion(('Log and save', pn.Column(w["sav_button"],
+                      w["experiment_name"], w["log_button"]))), w["status"]]:
+            vanilla.sidebar.append(c)
 
         vanilla.main.append(self._widgets["fig_panel"])
         return vanilla
