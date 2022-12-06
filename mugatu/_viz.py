@@ -6,10 +6,10 @@ Created on Mon May 31 21:02:02 2021
 import numpy as np
 import pandas as pd
 import holoviews as hv
-from bokeh.models import HoverTool, LassoSelectTool, BoxSelectTool
+from bokeh.models import HoverTool, LassoSelectTool, BoxSelectTool, TapTool
 
 
-def _build_node_dataset(df, cluster_indices, lenses={}, include_indices=True, num=3):
+def _build_node_dataset_DEPRECATED(df, cluster_indices, lenses={}, include_indices=True, num=3):
     """
 
     """
@@ -55,7 +55,50 @@ def _build_node_dataset(df, cluster_indices, lenses={}, include_indices=True, nu
         node_df["indices"] = [", ".join([str(i) for i in c]) for c in cluster_indices]
     return node_df
 
+def _build_node_dataset(df, cluster_indices, lenses={}, include_indices=True, num=3):
+    """
+    """
+    num = min(num, len(df.columns)-1)
+    # for each node- record the number of constituent data points
+    node_df = pd.DataFrame({
+        "index":np.arange(len(cluster_indices)),
+        "size":[len(c) for c in cluster_indices],
+        })
+    # next- for each node, compute the average value of every covariate.
+    mean_cols = []
+    for d in df.columns:
+        # skip if all values are the same
+        if df[d].std() > 0:
+            node_df[f"mean_{d}"] = [np.mean(df.loc[c,d]) for c in cluster_indices]
+            mean_cols.append(f"mean_{d}")
 
+    # the above creates way too much information to be readable in the hover tool.
+    # so for each node just find unusually high or low values. compute these by
+    # looking at node means shifted by the mean of all node means, and scaled by
+    # the standard deviation of node means.
+    rel_means = (node_df[mean_cols] - node_df[mean_cols].mean())/node_df[mean_cols].std()
+    sorted_means = rel_means.values.argsort(1)
+
+    cols = [str(c) for c in list(df.columns)]
+    highest = sorted_means[:,-num:][:,::-1]
+    node_df["high"] = [", ".join([cols[i] for i in highest[j,:] if
+                                     rel_means.values[j,i] > 0]) for j in
+                          range(len(highest))]
+    lowest = sorted_means[:,:num]
+    node_df["low"] = [", ".join([cols[i] for i in lowest[j,:] if
+                                rel_means.values[j,i] < 0]) for j in
+                      range(len(lowest))]
+
+    #node_df = node_df.drop(mean_cols,1)
+
+    if len(lenses) > 0:
+        lens_df = pd.DataFrame(lenses, index=df.index)
+        for l in lenses:
+            node_df[l] = [np.mean(lens_df.loc[c,l]) for c in cluster_indices]
+
+    if include_indices:
+        node_df["indices"] = [", ".join([str(i) for i in c]) for c in cluster_indices]
+    return node_df
 
 def _build_holoviews_fig(g, positions, node_df=None, color=[], width=800,
                          height=600, node_size=20, cmap="plasma", title="",
@@ -157,7 +200,15 @@ def _build_linked_holoviews_fig(df, edgefig, x, y, colors=[], width=600,
 
     """
     maxsize = df.size.max()
-    tools = ["hover", "box_select", "lasso_select", "tap"]
+    tooltips = [
+        ('Index', '@index'),
+        ('Size', '@size'),
+        ('High', '@high'),
+        ('Low', '@low')
+    ]
+    tools = [HoverTool(tooltips=tooltips),
+             LassoSelectTool(), BoxSelectTool(), TapTool()]
+    #tools = ["hover", "box_select", "lasso_select", "tap"]
 
     def _genmap(color, x, y):
         opts = {

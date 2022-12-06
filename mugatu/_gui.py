@@ -399,6 +399,8 @@ class Mapperator(object):
         logging.info("building figure")
         self._widgets["status"].object = "building figure"
         self._merged, self._edgefig = _prep_linked_fig(self._g, self._node_df, pos=self._pos)
+        self._merged["high"] = self._node_df["high"]
+        self._merged["low"] = self._node_df["low"]
         self._update_fig()
         self._widgets["progress"].value = 100
         # DONE
